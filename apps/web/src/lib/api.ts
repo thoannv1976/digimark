@@ -1,4 +1,5 @@
 import type { AnswerInput, HintPayload, RoomSettings, RoomStatus } from '@arena/types';
+import type { MarketDecision, MarketMe, MarketSettings } from '@arena/market';
 
 /** Server clock offset (ms) so every device counts down to the same deadline. */
 let offset = 0;
@@ -47,8 +48,8 @@ async function call<T>(method: 'GET' | 'POST', path: string, body?: object): Pro
 export const api = {
   time: () => call<{ serverNow: number }>('GET', '/time'),
   ltiLaunch: (ticket: string) =>
-    call<{ session: string; role: 'instructor' | 'learner'; name: string; contextTitle: string | null; graded: boolean }>('POST', '/lti/launch', { ticket }),
-  createRoom: (body: { hostPlays: boolean; hostName?: string; title?: string; settings?: Partial<RoomSettings>; ltiSession?: string }) =>
+    call<{ session: string; role: 'instructor' | 'learner'; name: string; contextTitle: string | null; graded: boolean; activity: string | null }>('POST', '/lti/launch', { ticket }),
+  createRoom: (body: { hostPlays: boolean; hostName?: string; title?: string; game?: 'ai-detective' | 'market-share'; settings?: Partial<RoomSettings> | Partial<MarketSettings>; ltiSession?: string }) =>
     call<{ code: string; hostToken: string; playerId?: string; playerToken?: string }>('POST', '/rooms', body),
   join: (code: string, name: string, ltiSession?: string) =>
     call<{ playerId: string; playerToken: string }>('POST', `/rooms/${code}/join`, { name, ...(ltiSession ? { ltiSession } : {}) }),
@@ -59,7 +60,11 @@ export const api = {
     call<{ ok: true; closed: boolean }>('POST', `/rooms/${code}/answer`, { playerId, playerToken, qIndex, input }),
   hint: (code: string, playerId: string, playerToken: string, qIndex: number) =>
     call<{ hint: HintPayload }>('POST', `/rooms/${code}/hint`, { playerId, playerToken, qIndex }),
-  advance: (code: string, opts: { hostToken?: string; expectStatus?: RoomStatus; expectQIndex?: number }) =>
+  decide: (code: string, playerId: string, playerToken: string, quarter: number, decision: MarketDecision) =>
+    call<{ ok: true; closed: boolean }>('POST', `/rooms/${code}/decide`, { playerId, playerToken, quarter, decision }),
+  me: (code: string, playerId: string, playerToken: string) => call<MarketMe>('POST', `/rooms/${code}/me`, { playerId, playerToken }),
+  extend: (code: string, hostToken: string) => call<{ ok: true }>('POST', `/rooms/${code}/extend`, { hostToken }),
+  advance: (code: string, opts: { hostToken?: string; expectStatus?: RoomStatus | 'decide' | 'results'; expectQIndex?: number; expectQuarter?: number }) =>
     call<{ changed: boolean }>('POST', `/rooms/${code}/advance`, opts),
 };
 

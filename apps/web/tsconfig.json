@@ -7,7 +7,8 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "paths": {
-      "@arena/types": ["../../packages/engine/src/types.ts"]
+      "@arena/types": ["../../packages/engine/src/types.ts"],
+      "@arena/market": ["../../packages/engine/src/market/types.ts"]
     }
   },
   "include": ["src"]

@@ -4,6 +4,8 @@ import { BOT_LEVEL_LABEL, MAX_SEATS, type AnswerInput, type HintPayload, type Ro
 import { CategoryStats, ErrorNote, Leaderboard, MoodleBanner, PlayerName, Qr, Shell, TimerBar, joinUrl } from '../components/common';
 import { AnswerArea, AnswerReview, CategoryChip, QuestionHeader } from '../components/QuestionView';
 import { api } from '../lib/api';
+import { MarketPlay } from '../market/MarketPlay';
+import { asMarket, useMarketAutoAdvance } from '../market/parts';
 import { answeredCount, humansOf, rankPlayers, useAutoAdvance, useNow, useRoom } from '../lib/hooks';
 import { clearSession, getHint, getLti, getName, getSession, setHint, setName, setSession, type Session } from '../lib/storage';
 
@@ -13,6 +15,8 @@ export function Play() {
   const { room, error } = useRoom(code);
   const now = useNow();
   useAutoAdvance(room, now, session?.hostToken);
+  const isMarket = (room as unknown as { game?: string } | null | undefined)?.game === 'market-share';
+  useMarketAutoAdvance(room && isMarket ? asMarket(room) : null, now, session?.hostToken);
 
   // Each new screen (question, answer, final) starts at the top.
   const screenKey = room ? `${room.status}:${room.qIndex}` : '';
@@ -44,6 +48,16 @@ export function Play() {
 
   const me = room.players[session.playerId];
   if (!me) return null;
+  if (isMarket) {
+    const m = asMarket(room);
+    const st = m.standings[session.playerId];
+    return (
+      <Shell right={<span className="max-w-[55%] truncate text-sm text-white/80">{me.name}{st ? <> · hạng <b className="text-amber">{st.rank}</b></> : null}</span>}>
+        <ErrorNote text={error} />
+        <MarketPlay room={m} session={session} now={now} />
+      </Shell>
+    );
+  }
   return (
     <Shell right={<span className="max-w-[45%] truncate text-sm text-white/80">{me.name} · <b className="text-amber">{me.score}</b></span>}>
       <ErrorNote text={error} />
@@ -85,7 +99,8 @@ function JoinForm({ room, onJoined }: { room: RoomDoc; onJoined: (s: Session) =>
           <p className="text-sm text-ink/60">Phòng {room.code}</p>
           <h1 className="text-2xl font-extrabold">{room.title}</h1>
           <p className="mt-1 text-sm text-ink/60">
-            {room.order.length}/{MAX_SEATS} người · {room.status === 'lobby' ? 'đang chờ bắt đầu' : room.status === 'finished' ? 'đã kết thúc' : 'đang chơi (vẫn vào được)'}
+            {(room as unknown as { game?: string }).game === 'market-share' ? 'Đấu trường Thị phần · ' : 'Thám tử AI · '}
+            {room.order.length}/{MAX_SEATS} người · {room.status === 'lobby' ? 'đang chờ bắt đầu' : room.status === 'finished' ? 'đã kết thúc' : (room as unknown as { game?: string }).game === 'market-share' ? 'trận đã bắt đầu' : 'đang chơi (vẫn vào được)'}
           </p>
         </div>
         {room.status === 'finished' || full ? (

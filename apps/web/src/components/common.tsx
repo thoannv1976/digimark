@@ -2,6 +2,7 @@ import QRCode from 'qrcode';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { BOT_LEVEL_LABEL, CATEGORY_LABEL, type Category, type PlayerPublic, type RevealPublic, type RoomDoc } from '@arena/types';
+import { ARCHETYPE_INFO, type MarketRoomDoc } from '@arena/market';
 import { rankPlayers } from '../lib/hooks';
 
 export function Shell({ children, wide, right }: { children: ReactNode; wide?: boolean; right?: ReactNode }) {
@@ -123,6 +124,11 @@ export const joinUrl = (code: string) => `${window.location.origin}/p/${code}`;
 
 export function statusLabel(room: RoomDoc): string {
   if (room.status === 'lobby') return 'Đang chờ';
+  if ((room as unknown as MarketRoomDoc).game === 'market-share') {
+    const m = room as unknown as MarketRoomDoc;
+    if (m.status === 'finished') return 'Đã kết thúc';
+    return `Quý ${m.quarter}/${m.quarters}${m.status === 'results' ? ' · kết quả' : ' · quyết định'}`;
+  }
   if (room.status === 'finished') return 'Đã kết thúc';
   return `Câu ${room.qIndex + 1}/${room.qTotal}${room.status === 'reveal' ? ' · đáp án' : ''}`;
 }
@@ -151,6 +157,35 @@ export function resultsCsv(rooms: RoomDoc[]): string {
   }
   const esc = (v: string) => (/[",\n;]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
   return '﻿' + lines.map((l) => l.map(esc).join(',')).join('\r\n');
+}
+
+/** Game 1 results (one row per chain). */
+export function marketCsv(rooms: MarketRoomDoc[]): string {
+  const header = ['Phòng', 'Mã phòng', 'Hạng', 'Chuỗi', 'Loại', 'Gửi Moodle', 'Giá trị doanh nghiệp', 'Thị phần theo giá trị (%)', 'Điểm sao', 'Lợi nhuận lũy kế (tỷ)', 'Thẻ mục tiêu (/100)', 'Số quý'];
+  const lines = [header];
+  for (const room of rooms) {
+    const ids = room.order.slice().sort((a, b) => (room.standings[a]?.rank ?? 99) - (room.standings[b]?.rank ?? 99));
+    for (const id of ids) {
+      const p = room.players[id]!;
+      const s = room.standings[id];
+      lines.push([
+        room.title,
+        room.code,
+        String(s?.rank ?? ''),
+        p.name,
+        p.bot ? `Máy (${p.archetype ? ARCHETYPE_INFO[p.archetype] : ''})` : 'Người',
+        p.lms ? (room.lmsStatus?.[id] === 'sent' ? 'Đã gửi' : room.lmsStatus?.[id] === 'error' ? 'Lỗi' : 'Chờ') : '',
+        s ? String(s.valueIndex) : '',
+        s ? (s.share * 100).toFixed(1) : '',
+        s ? s.rating.toFixed(2) : '',
+        s ? s.profitCum.toFixed(2) : '',
+        s ? String(s.scorecard) : '',
+        String(room.history.length),
+      ]);
+    }
+  }
+  const esc = (v: string) => (/[",\n;]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  return '\ufeff' + lines.map((l) => l.map(esc).join(',')).join('\r\n');
 }
 
 export function downloadText(filename: string, text: string) {

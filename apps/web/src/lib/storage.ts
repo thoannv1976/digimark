@@ -53,6 +53,8 @@ export interface LtiSession {
   name: string;
   contextTitle: string | null;
   graded: boolean;
+  /** Moodle activity: 'ai-detective' | 'market-share' | 'arena'. */
+  activity?: string | null;
   at: number;
 }
 const LTI_MAX_AGE = 12 * 3600 * 1000;

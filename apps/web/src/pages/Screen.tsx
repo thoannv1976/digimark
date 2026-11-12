@@ -6,6 +6,9 @@ import { AnswerReview, CategoryChip, QuestionHeader, QuestionPreview } from '../
 import { api } from '../lib/api';
 import { answeredCount, rankPlayers, useAutoAdvance, useNow, useRoom } from '../lib/hooks';
 import { getHostedRooms, getSession } from '../lib/storage';
+import { MarketScreen } from '../market/MarketScreen';
+import { asMarket, useMarketAutoAdvance } from '../market/parts';
+import { marketCsv } from '../components/common';
 
 /** Projector screen for one room. Host controls appear when this browser created the room. */
 export function Screen() {
@@ -14,6 +17,8 @@ export function Screen() {
   const now = useNow();
   const hostToken = getHostedRooms().find((r) => r.code === code)?.hostToken ?? getSession(code)?.hostToken;
   useAutoAdvance(room, now, hostToken);
+  const isMarket = (room as unknown as { game?: string } | null | undefined)?.game === 'market-share';
+  useMarketAutoAdvance(room && isMarket ? asMarket(room) : null, now, hostToken);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -35,19 +40,21 @@ export function Screen() {
   return (
     <div className="min-h-screen bg-paper">
       <header className="flex items-center justify-between bg-ink px-6 py-3 text-white">
-        <span className="text-xl font-extrabold">🔍 Thám tử AI · <span className="text-amber">{room.title}</span></span>
+        <span className="text-xl font-extrabold">{isMarket ? '📈 Đấu trường Thị phần' : '🔍 Thám tử AI'} · <span className="text-amber">{room.title}</span></span>
         <span className="text-lg">
           Mã phòng <b className="text-2xl tracking-[0.2em] text-amber">{room.code}</b>
         </span>
       </header>
       <main className="mx-auto max-w-6xl space-y-5 p-6">
         <ErrorNote text={error ?? actionError} />
-        {room.status === 'lobby' && <LobbyScreen room={room} />}
-        {room.status === 'question' && <QuestionScreen room={room} now={now} />}
-        {room.status === 'reveal' && <RevealScreen room={room} now={now} />}
-        {room.status === 'finished' && <FinalScreen room={room} />}
+        {isMarket && <MarketScreen room={asMarket(room)} now={now} />}
+        {!isMarket && room.status === 'lobby' && <LobbyScreen room={room} />}
+        {!isMarket && room.status === 'question' && <QuestionScreen room={room} now={now} />}
+        {!isMarket && room.status === 'reveal' && <RevealScreen room={room} now={now} />}
+        {!isMarket && room.status === 'finished' && <FinalScreen room={room} />}
 
-        {hostToken && (
+        {hostToken && isMarket && <MarketControls room={asMarket(room)} hostToken={hostToken} busy={busy} run={run} />}
+        {hostToken && !isMarket && (
           <div className="flex flex-wrap justify-center gap-3 pt-2">
             {room.status === 'lobby' && (
               <button type="button" className="btn-primary px-8 py-3 text-xl" disabled={busy || !room.order.length} onClick={() => run(() => api.start(room.code, hostToken))}>
@@ -67,6 +74,40 @@ export function Screen() {
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+function MarketControls({ room, hostToken, busy, run }: { room: import('@arena/market').MarketRoomDoc; hostToken: string; busy: boolean; run: (fn: () => Promise<unknown>) => Promise<void> }) {
+  return (
+    <div className="flex flex-wrap justify-center gap-3 pt-2">
+      {room.status === 'lobby' && (
+        <button type="button" className="btn-primary px-8 py-3 text-xl" disabled={busy || !room.order.length} onClick={() => run(() => api.start(room.code, hostToken))}>
+          ▶ Bắt đầu
+        </button>
+      )}
+      {room.status === 'decide' && (
+        <>
+          {room.deadline !== null && (
+            <button type="button" className="btn-ghost" disabled={busy} onClick={() => run(() => api.extend(room.code, hostToken))}>
+              +1 phút
+            </button>
+          )}
+          <button type="button" className="btn-dark" disabled={busy} onClick={() => window.confirm('Chốt quý ngay? Chuỗi chưa nộp sẽ giữ quyết định quý trước.') && run(() => api.advance(room.code, { hostToken, expectStatus: 'decide', expectQuarter: room.quarter }))}>
+            Chốt quý ngay
+          </button>
+        </>
+      )}
+      {room.status === 'results' && (
+        <button type="button" className="btn-primary px-8 py-3 text-xl" disabled={busy} onClick={() => run(() => api.advance(room.code, { hostToken, expectStatus: 'results', expectQuarter: room.quarter }))}>
+          Sang quý {room.quarter + 1} →
+        </button>
+      )}
+      {room.status === 'finished' && (
+        <button type="button" className="btn-dark" onClick={() => downloadText(`ket-qua-thi-phan-${room.code}.csv`, marketCsv([room]))}>
+          ⬇ Xuất kết quả
+        </button>
+      )}
     </div>
   );
 }

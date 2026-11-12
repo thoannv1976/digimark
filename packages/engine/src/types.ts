@@ -1,7 +1,7 @@
 // Public types shared by the API and the browser. This module must stay data-free:
 // the browser imports it, so it must never pull in the question bank (answers).
 
-export type GameId = 'ai-detective';
+export type GameId = 'ai-detective' | 'market-share';
 
 export type Category = 'spot' | 'light' | 'prompt' | 'kpi' | 'crisis' | 'gov';
 export const CATEGORIES: Category[] = ['spot', 'light', 'prompt', 'kpi', 'crisis', 'gov'];

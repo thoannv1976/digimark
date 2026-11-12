@@ -23,7 +23,7 @@ export function LtiLaunch() {
     api
       .ltiLaunch(ticket)
       .then((r) => {
-        setLti({ session: r.session, role: r.role, name: r.name, contextTitle: r.contextTitle, graded: r.graded, at: Date.now() });
+        setLti({ session: r.session, role: r.role, name: r.name, contextTitle: r.contextTitle, graded: r.graded, activity: r.activity, at: Date.now() });
         nav(r.role === 'instructor' ? '/gv' : '/', { replace: true });
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Không mở được từ Moodle.'));

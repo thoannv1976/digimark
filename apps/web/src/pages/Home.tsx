@@ -9,6 +9,7 @@ export function Home() {
   const nav = useNavigate();
   const [code, setCode] = useState('');
   const lti = getLti();
+  const [game, setGame] = useState<'ai-detective' | 'market-share'>(lti?.activity === 'market-share' ? 'market-share' : 'ai-detective');
   const [name, setNameState] = useState(lti?.role === 'learner' ? lti.name : getName());
   const [level, setLevel] = useState<BotLevel>('medium');
   const [count, setCount] = useState(15);
@@ -31,7 +32,9 @@ export function Home() {
       const r = await api.createRoom({
         hostPlays: true,
         hostName: n,
-        settings: { botLevel: level, questionCount: count, fillBots: true },
+        ...(game === 'market-share'
+          ? { game, settings: { botLevel: level, fillBots: true, decideSec: withBotsNow ? 0 : 300 } }
+          : { settings: { botLevel: level, questionCount: count, fillBots: true } }),
         ...(lti?.role === 'learner' ? { ltiSession: lti.session } : {}),
       });
       setSession(r.code, { playerId: r.playerId!, playerToken: r.playerToken!, hostToken: r.hostToken });
@@ -47,11 +50,29 @@ export function Home() {
   return (
     <Shell right={<Link to="/gv" className="text-sm font-medium text-white/80 hover:text-white">Giảng viên →</Link>}>
       <MoodleBanner lti={lti?.role === 'learner' ? lti : null} role="learner" />
-      <section className="mb-5 rounded-2xl bg-ink p-5 text-white">
-        <p className="text-sm font-semibold uppercase tracking-widest text-amber">Game 2</p>
-        <h1 className="mt-1 text-3xl font-extrabold">Thám tử AI</h1>
-        <p className="mt-2 text-white/80">Đấu nhanh 6 người: bắt lỗi bài AI viết, phân loại dữ liệu, chọn prompt, đọc số liệu và xử lý khủng hoảng. Nhanh và đúng thì thắng.</p>
-      </section>
+      <div className="mb-3 grid grid-cols-2 gap-2">
+        {([
+          ['ai-detective', '🔍 Thám tử AI'],
+          ['market-share', '📈 Đấu trường Thị phần'],
+        ] as const).map(([id, name]) => (
+          <button key={id} type="button" onClick={() => setGame(id)} className={`rounded-xl px-3 py-2 text-sm font-bold ring-1 ${game === id ? 'bg-ink text-white ring-ink' : 'bg-white ring-ink/15'}`}>
+            {name}
+          </button>
+        ))}
+      </div>
+      {game === 'ai-detective' ? (
+        <section className="mb-5 rounded-2xl bg-ink p-5 text-white">
+          <p className="text-sm font-semibold uppercase tracking-widest text-amber">Game 2</p>
+          <h1 className="mt-1 text-3xl font-extrabold">Thám tử AI</h1>
+          <p className="mt-2 text-white/80">Đấu nhanh 6 người: bắt lỗi bài AI viết, phân loại dữ liệu, chọn prompt, đọc số liệu và xử lý khủng hoảng. Nhanh và đúng thì thắng.</p>
+        </section>
+      ) : (
+        <section className="mb-5 rounded-2xl bg-ink p-5 text-white">
+          <p className="text-sm font-semibold uppercase tracking-widest text-amber">Game 1</p>
+          <h1 className="mt-1 text-3xl font-extrabold">Đấu trường Thị phần</h1>
+          <p className="mt-2 text-white/80">Điều hành marketing một chuỗi 20 cửa hàng xăng dầu – gas qua 5 quý: chọn định vị, phân khúc, chia 2 tỷ ngân sách, xử lý E10, xe điện, khủng hoảng. Giá trị doanh nghiệp cao nhất thắng.</p>
+        </section>
+      )}
 
       <form onSubmit={join} className="card mb-4">
         <h2 className="mb-3 text-lg font-bold">Vào phòng của lớp</h2>
@@ -87,7 +108,7 @@ export function Home() {
               ))}
             </div>
           </div>
-          <div>
+          {game === 'ai-detective' && <div>
             <span className="label">Số câu</span>
             <div className="grid grid-cols-3 gap-1">
               {[10, 15, 20].map((n) => (
@@ -96,7 +117,7 @@ export function Home() {
                 </button>
               ))}
             </div>
-          </div>
+          </div>}
         </div>
         <ErrorNote text={error} />
         <div className="grid gap-2 sm:grid-cols-2">
@@ -110,7 +131,7 @@ export function Home() {
         <p className="text-xs text-ink/50">Phòng mời bạn: gửi mã cho tối đa 5 người; ghế trống được máy chơi thay khi bắt đầu.</p>
       </section>
 
-      <section className="mt-4 card text-sm leading-relaxed text-ink/80">
+      {game === 'ai-detective' && <section className="mt-4 card text-sm leading-relaxed text-ink/80">
         <h2 className="mb-2 text-base font-bold text-ink">Cách tính điểm</h2>
         <ul className="list-disc space-y-1 pl-5">
           <li>Đúng: tối đa 1.000 điểm, trả lời càng nhanh càng cao (chậm nhất còn 500).</li>
@@ -119,7 +140,7 @@ export function Home() {
           <li>Bắt lỗi AI: đúng câu sai nhưng sai loại lỗi được 60%. Sắp xếp: đúng bao nhiêu vị trí được bấy nhiêu phần.</li>
           <li>🔍 Kiểm chứng (2 lượt/trận): loại bớt phương án hoặc gợi ý, nhưng câu đó chỉ còn một nửa số điểm.</li>
         </ul>
-      </section>
+      </section>}
     </Shell>
   );
 }

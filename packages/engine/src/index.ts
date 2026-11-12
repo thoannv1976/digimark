@@ -7,3 +7,4 @@ export * from './bots.js';
 export * from './questions.js';
 export * from './room.js';
 export { AI_DETECTIVE_BANK } from './content/ai-detective.js';
+export * from './market/index.js';

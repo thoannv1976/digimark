@@ -1,0 +1,26 @@
+{
+  "name": "digimark-arena",
+  "private": true,
+  "version": "0.1.0",
+  "description": "DIGIMARK Arena – game cạnh tranh cho khóa Thị trường và Marketing số (Game 2: Thám tử AI)",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test:unit": "npm run test --workspace @arena/engine",
+    "test:integration": "firebase emulators:exec --only firestore --project demo-arena \"npm run test:integration --workspace @arena/api\"",
+    "build": "npm run build --workspace @arena/web && npm run build --workspace @arena/api",
+    "emulators": "firebase emulators:start --only firestore --project demo-arena",
+    "dev:api": "npm run dev --workspace @arena/api",
+    "dev:web": "npm run dev --workspace @arena/web"
+  },
+  "devDependencies": {
+    "tsx": "4.20.6",
+    "typescript": "5.9.3"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "@arena/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "node build.mjs",
+    "start": "node dist/server.js",
+    "typecheck": "tsc -p tsconfig.json",
+    "test:integration": "vitest run --dir test"
+  },
+  "dependencies": {
+    "@arena/engine": "0.1.0",
+    "@fastify/helmet": "13.0.2",
+    "@fastify/rate-limit": "10.3.0",
+    "fastify": "5.6.1",
+    "firebase-admin": "13.5.0",
+    "zod": "4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "22.18.12",
+    "esbuild": "0.25.11",
+    "vitest": "3.2.4"
+  }
+}

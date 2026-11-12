@@ -1,0 +1,17 @@
+rules_version = '2';
+// Browsers only read a room they know the code of. Every write goes through the API (Admin SDK).
+// The private sub-document (answer key, tokens) is never readable from a browser.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /rooms/{code} {
+      allow get: if true;
+      allow list, write: if false;
+      match /private/{doc} {
+        allow read, write: if false;
+      }
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

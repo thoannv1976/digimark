@@ -1,0 +1,56 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-ink: #0b2239;
+  --color-ink-2: #163a5c;
+  --color-ink-3: #2a5680;
+  --color-paper: #f4f6f9;
+  --color-amber: #f2a900;
+  --color-amber-2: #ffd166;
+  --color-ok: #0e9f6e;
+  --color-bad: #d64545;
+  --font-sans: 'Be Vietnam Pro', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+body {
+  margin: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+@utility card {
+  @apply rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5 sm:p-5;
+}
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn bg-amber text-ink hover:bg-amber-2;
+}
+@utility btn-dark {
+  @apply btn bg-ink text-white hover:bg-ink-2;
+}
+@utility btn-ghost {
+  @apply btn bg-transparent text-ink ring-1 ring-ink/15 hover:bg-ink/5;
+}
+@utility input {
+  @apply w-full rounded-xl border border-ink/15 bg-white px-3 py-2.5 text-base outline-none focus:border-ink-3 focus:ring-2 focus:ring-ink-3/20;
+}
+@utility label {
+  @apply mb-1 block text-sm font-medium text-ink/70;
+}
+
+@keyframes pop {
+  0% { transform: scale(0.9); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.pop {
+  animation: pop 0.25s ease-out;
+}

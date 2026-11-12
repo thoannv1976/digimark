@@ -390,7 +390,8 @@ export function simulateQuarter(
     p.gpPrev = money.gp;
     p.lastBudget = { ...input.decision.budget };
   }
-  return { reports, news, outsideShare: round(outsideTotal / sizeTotal, 4) };
+  // Several chains can trigger the same headline; the market feed shows it once.
+  return { reports, news: Array.from(new Set(news)), outsideShare: round(outsideTotal / sizeTotal, 4) };
 }
 
 function applyEffect(p: PlayerState, e: EventEffect, extra: Record<SegmentId, number>, gpF: Record<SegmentId, number>, quarter: number) {

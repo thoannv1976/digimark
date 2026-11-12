@@ -22,7 +22,7 @@ export function Shell({ children, wide, right }: { children: ReactNode; wide?: b
 }
 
 /** Shown when the page was opened from Moodle. */
-export function MoodleBanner({ lti, role }: { lti: { contextTitle: string | null; graded: boolean } | null; role: 'learner' | 'instructor' }) {
+export function MoodleBanner({ lti, role, game }: { lti: { contextTitle: string | null; graded: boolean } | null; role: 'learner' | 'instructor'; game?: string }) {
   if (!lti) return null;
   return (
     <div className="mb-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm leading-relaxed text-emerald-900 ring-1 ring-emerald-200">
@@ -30,7 +30,9 @@ export function MoodleBanner({ lti, role }: { lti: { contextTitle: string | null
       {lti.contextTitle ? ` · ${lti.contextTitle}` : ''}.{' '}
       {role === 'learner'
         ? lti.graded
-          ? 'Kết thúc mỗi trận, tỷ lệ câu đúng được gửi về Sổ điểm (lấy lần cao nhất).'
+          ? game === 'market-share'
+            ? 'Hết 5 quý, điểm (70% thẻ mục tiêu + 30% thứ hạng) được gửi về Sổ điểm (lấy lần cao nhất).'
+            : 'Kết thúc mỗi trận, tỷ lệ câu đúng được gửi về Sổ điểm (lấy lần cao nhất).'
           : 'Hoạt động này không lấy điểm.'
         : 'Học viên mở hoạt động trong Moodle rồi nhập mã phòng; khi phòng kết thúc, điểm tự về Sổ điểm.'}
     </div>

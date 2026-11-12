@@ -145,7 +145,7 @@ export const EVENTS: EventModel[] = [
     text: 'Một video quay tại cửa hàng của chuỗi dẫn đầu thị phần tố trụ bơm thiếu, 50.000 lượt xem sau 1 giờ. Các chuỗi khác cũng bị khách hỏi.',
     market: { news: 'Video “bơm thiếu” tại cửa hàng của chuỗi dẫn đầu lan truyền trên mạng.' },
     options: [
-      { id: 'review', label: 'Rà soát quy trình đồng hồ về 0 và kịch bản khủng hoảng của mình', cost: 0.05, effect: { caps: { trust: 0.3 }, crisis: 25, result: 'Sẵn sàng quy trình; khách thấy cửa hàng minh bạch.' } },
+      { id: 'review', label: 'Rà soát quy trình đồng hồ về 0 và kịch bản khủng hoảng của mình', cost: 0.1, effect: { caps: { trust: 0.3 }, crisis: 25, result: 'Sẵn sàng quy trình; khách thấy cửa hàng minh bạch.' } },
       { id: 'attack', label: 'Quảng cáo đá xoáy: “Cây xăng không bao giờ bơm thiếu”', cost: 0.1, effect: { awareness: 6, caps: { trust: -0.4 }, crisis: 5, result: 'Thu hút chú ý, nhưng lời hứa tuyệt đối làm khách nghi ngờ.' } },
       { id: 'none', label: 'Không làm gì', cost: 0, effect: { crisis: 15, result: 'Không có gì thay đổi.' } },
     ],
@@ -153,7 +153,7 @@ export const EVENTS: EventModel[] = [
       title: 'Khủng hoảng ở cửa hàng của bạn!',
       text: 'Video quay tại cửa hàng của BẠN, 50.000 lượt xem, trang tin địa phương hỏi ý kiến. Chưa có kết quả đo kiểm. Bạn làm gì trong giờ đầu?',
       options: [
-        { id: 'own', label: 'Ghi nhận ngay, dừng trụ bơm, hẹn giờ công bố kết quả đo có chứng kiến', cost: 0.05, effect: { rating: -0.1, caps: { trust: 0.3 }, crisis: 25, softenedByService: true, result: 'Thông báo trong giờ đầu được đánh giá cao; thiệt hại nhỏ.' } },
+        { id: 'own', label: 'Ghi nhận ngay, dừng trụ bơm, hẹn giờ công bố kết quả đo có chứng kiến', cost: 0.1, effect: { rating: -0.1, caps: { trust: 0.3 }, crisis: 25, softenedByService: true, result: 'Thông báo trong giờ đầu được đánh giá cao; thiệt hại nhỏ.' } },
         { id: 'wait', label: 'Im lặng, chờ có kết quả đo rồi mới nói', cost: 0, effect: { rating: -0.4, utility: { cars: -0.3 }, nextUtility: { cars: -0.2 }, crisis: 10, softenedByService: true, result: 'Sự im lặng bị hiểu là né tránh; khách ô tô rời đi.' } },
         { id: 'deny', label: 'Đăng bài phủ nhận: “Trụ bơm của chúng tôi luôn đúng”', cost: 0, effect: { rating: -0.5, caps: { trust: -1.5 }, next: { rating: -0.3, news: 'Camera cho thấy nhân viên không đưa đồng hồ về 0 – bài phủ nhận bị chụp lại lan truyền.' }, crisis: 0, softenedByService: true, result: 'Phủ nhận khi chưa kiểm tra; quý sau sự thật lộ ra.' } },
         { id: 'delete', label: 'Ẩn, xóa các bình luận chỉ trích', cost: 0, effect: { rating: -0.7, caps: { trust: -1 }, crisis: 0, softenedByService: true, result: 'Khách chụp màn hình việc xóa bình luận; điểm sao lao dốc.' } },
@@ -177,8 +177,8 @@ export const EVENTS: EventModel[] = [
     text: 'Nhiều khách gas lâu năm quá 60 ngày chưa mua lại; tổng đài quá tải giờ nấu cơm chiều.',
     market: { churn: { segments: ['households', 'restaurants'], drop: 0.15, crmThreshold: 0.4 }, news: 'Khách gas rời đi âm thầm ở các chuỗi không có CRM nhắc mua lại.' },
     options: [
-      { id: 'call', label: 'Gọi hỏi thăm khách có nguy cơ rời bỏ (F ≥ 4, R > 60 ngày), ưu đãi quay lại', cost: 0.05, effect: { utility: { households: 0.3, restaurants: 0.2 }, repurchase: 0.03, result: 'Nhiều khách quay lại và nói lý do rời đi.' } },
-      { id: 'zalo', label: 'Mở đặt gas qua Zalo OA giờ cao điểm', cost: 0.15, effect: { caps: { speed: 0.6, digital: 0.4 }, result: 'Giảm tải tổng đài, khách đặt gas nhanh hơn.' } },
+      { id: 'call', label: 'Gọi hỏi thăm khách có nguy cơ rời bỏ (F ≥ 4, R > 60 ngày), ưu đãi quay lại', cost: 0.1, effect: { utility: { households: 0.3, restaurants: 0.2 }, repurchase: 0.03, result: 'Nhiều khách quay lại và nói lý do rời đi.' } },
+      { id: 'zalo', label: 'Mở đặt gas qua Zalo OA giờ cao điểm', cost: 0.2, effect: { caps: { speed: 0.6, digital: 0.4 }, result: 'Giảm tải tổng đài, khách đặt gas nhanh hơn.' } },
       { id: 'discount', label: 'Giảm giá gas 10% cho mọi khách', cost: 0.3, effect: { utility: { households: 0.25 }, gpFactor: { households: 0.9, restaurants: 0.9 }, result: 'Khách quay lại, nhưng lãi gộp gas giảm.' } },
       { id: 'none', label: 'Không làm gì', cost: 0, effect: { result: 'Không thay đổi.' } },
     ],

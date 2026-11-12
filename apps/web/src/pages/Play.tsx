@@ -93,7 +93,7 @@ function JoinForm({ room, onJoined }: { room: RoomDoc; onJoined: (s: Session) =>
   }
   return (
     <Shell>
-      <MoodleBanner lti={moodle} role="learner" />
+      <MoodleBanner lti={moodle} role="learner" game={(room as unknown as { game?: string }).game} />
       <form onSubmit={submit} className="card space-y-4">
         <div>
           <p className="text-sm text-ink/60">Phòng {room.code}</p>

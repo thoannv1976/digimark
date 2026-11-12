@@ -49,7 +49,7 @@ export function Home() {
 
   return (
     <Shell right={<Link to="/gv" className="text-sm font-medium text-white/80 hover:text-white">Giảng viên →</Link>}>
-      <MoodleBanner lti={lti?.role === 'learner' ? lti : null} role="learner" />
+      <MoodleBanner lti={lti?.role === 'learner' ? lti : null} role="learner" game={game} />
       <div className="mb-3 grid grid-cols-2 gap-2">
         {([
           ['ai-detective', '🔍 Thám tử AI'],

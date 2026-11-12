@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ARCHETYPES,
   BUDGET_KEYS,
+  BUDGET_STEP,
+  EVENTS,
+  QUARTER_BUDGET,
+  botDecision,
   SMART,
   advanceMarket,
   createMarketRoom,
@@ -190,3 +195,27 @@ describe('market room flow', () => {
 });
 
 export type { MarketPrivate };
+
+describe('event costs and budgets', () => {
+  const onGrid = (x: number) => Math.abs(x / BUDGET_STEP - Math.round(x / BUDGET_STEP)) < 1e-9;
+
+  it('every event option costs a whole number of budget steps (the UI moves in 0,1 tỷ)', () => {
+    for (const e of EVENTS) for (const o of [...e.options, ...(e.special?.options ?? [])]) expect(onGrid(o.cost), `${e.id}/${o.id} costs ${o.cost}`).toBe(true);
+  });
+
+  it('bot decisions never exceed the quarter budget (they used to be rejected as 2.1 / 2 tỷ)', () => {
+    const rng = seededRng('bot-budgets');
+    for (const a of ARCHETYPES)
+      for (const level of ['easy', 'medium', 'hard'] as const)
+        for (let q = 1; q <= EVENTS.length; q++)
+          for (const crisis of [false, true])
+            for (let i = 0; i < 20; i++) {
+              const d = botDecision(a, level, { knownPrefs: {} } as never, q, crisis, rng);
+              const e = EVENTS[q - 1]!;
+              const opts = crisis && e.special ? e.special.options : e.options;
+              const cost = opts.find((o) => o.id === d.eventChoice)?.cost ?? 0;
+              const total = BUDGET_KEYS.reduce((s, k) => s + d.budget[k], cost);
+              expect(Math.round(total * 10) / 10, `${a}/${level}/Q${q}`).toBeLessThanOrEqual(QUARTER_BUDGET);
+            }
+  });
+});

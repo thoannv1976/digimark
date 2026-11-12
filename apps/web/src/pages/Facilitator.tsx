@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BOT_LEVEL_LABEL, CATEGORIES, CATEGORY_LABEL, MAX_SEATS, type BotLevel, type Category, type RoomDoc } from '@arena/types';
-import { ErrorNote, MoodleBanner, Shell, downloadText, joinUrl, marketCsv, resultsCsv, statusLabel } from '../components/common';
+import { ErrorNote, MoodleBanner, Shell, abmCsv, downloadText, joinUrl, marketCsv, resultsCsv, statusLabel } from '../components/common';
+import { MONTHS, type AbmRoomDoc } from '@arena/abm';
+import { asAbm, isAbmRoom, rankedIds as abmRanked, useAbmAutoAdvance } from '../abm/parts';
 import type { MarketRoomDoc } from '@arena/market';
 import { asMarket, rankedIds, useMarketAutoAdvance } from '../market/parts';
 import { api } from '../lib/api';
@@ -11,8 +13,11 @@ import { getHostedRooms, getLti, setHostedRooms, type HostedRoom } from '../lib/
 export function Facilitator() {
   const [rooms, setRooms] = useState<HostedRoom[]>(getHostedRooms);
   const lti = getLti();
-  const [game, setGame] = useState<'ai-detective' | 'market-share'>(lti?.activity === 'market-share' ? 'market-share' : 'ai-detective');
+  const [game, setGame] = useState<'ai-detective' | 'market-share' | 'key-accounts'>(lti?.activity === 'market-share' || lti?.activity === 'key-accounts' ? lti.activity : 'ai-detective');
   const [decideMin, setDecideMin] = useState(5);
+  const [monthMin, setMonthMin] = useState(4);
+  const [briefMin, setBriefMin] = useState(3);
+  const [bidMin, setBidMin] = useState(4);
   const [resultsSec, setResultsSec] = useState(0);
   const [snapshots, setSnapshots] = useState<Record<string, RoomDoc>>({});
   const [count, setCount] = useState(5);
@@ -37,7 +42,9 @@ export function Facilitator() {
       for (let i = 0; i < count; i++) {
         const title = `${prefix.trim() || 'Phòng'} ${start + i}`;
         const r =
-          game === 'market-share'
+          game === 'key-accounts'
+            ? await api.createRoom({ game, hostPlays: false, title, settings: { monthSec: monthMin * 60, briefSec: briefMin * 60, bidSec: bidMin * 60, resultsSec, botLevel: level, fillBots } })
+            : game === 'market-share'
             ? await api.createRoom({ game, hostPlays: false, title, settings: { quarters: 5, decideSec: decideMin * 60, resultsSec, botLevel: level, fillBots } })
             : await api.createRoom({ hostPlays: false, title, settings: { questionCount: questions, botLevel: level, fillBots, autoNextSec: autoNext, categories: cats } });
         made.push({ code: r.code, hostToken: r.hostToken, title, createdAt: Date.now() });
@@ -51,7 +58,8 @@ export function Facilitator() {
   }
 
   const live = rooms.map((r) => snapshots[r.code]).filter((r): r is RoomDoc => Boolean(r));
-  const liveQuiz = live.filter((r) => (r as unknown as { game?: string }).game !== 'market-share');
+  const liveQuiz = live.filter((r) => (r as unknown as { game?: string }).game === 'ai-detective' || !(r as unknown as { game?: string }).game);
+  const liveAbm = live.filter((r) => isAbmRoom(r)).map((r) => r as unknown as AbmRoomDoc);
   const liveMarket = live.filter((r) => (r as unknown as { game?: string }).game === 'market-share').map((r) => r as unknown as MarketRoomDoc);
   const waiting = rooms.filter((r) => {
     const s = snapshots[r.code];
@@ -70,10 +78,11 @@ export function Facilitator() {
       <MoodleBanner lti={getLti()?.role === 'instructor' ? getLti() : null} role="instructor" />
       <h1 className="mb-1 text-2xl font-extrabold">Bảng điều khiển giảng viên · DIGIMARK Arena</h1>
       <p className="mb-3 text-ink/60">Tạo nhiều phòng 6 người, chiếu mã phòng lên màn hình, theo dõi tất cả phòng cùng lúc và xuất kết quả.</p>
-      <div className="mb-4 grid gap-2 sm:grid-cols-2">
+      <div className="mb-4 grid gap-2 sm:grid-cols-3">
         {([
-          ['ai-detective', '🔍 Game 2 · Thám tử AI', 'Đấu nhanh 10–25 câu (CĐ3–CĐ4), khoảng 15 phút.'],
           ['market-share', '📈 Game 1 · Đấu trường Thị phần', 'Mô phỏng 5 quý thị trường xăng dầu – gas (tình huống A), khoảng 40 phút.'],
+          ['ai-detective', '🔍 Game 2 · Thám tử AI', 'Đấu nhanh 10–25 câu (CĐ3–CĐ4), khoảng 15 phút.'],
+          ['key-accounts', '🤝 Game 3 · Săn hợp đồng trọng điểm', 'ABM 8 nhà máy, nhóm mua 5 vai (CĐ2, tình huống C), khoảng 35–40 phút.'],
         ] as const).map(([id, name, note]) => (
           <button key={id} type="button" onClick={() => setGame(id)} className={`rounded-2xl px-4 py-3 text-left ring-1 ${game === id ? 'bg-ink text-white ring-ink' : 'bg-white ring-ink/15 hover:bg-amber/10'}`}>
             <p className="font-bold">{name}</p>
@@ -92,7 +101,35 @@ export function Facilitator() {
             <label className="label" htmlFor="pre">Tên phòng</label>
             <input id="pre" className="input" value={prefix} maxLength={30} onChange={(e) => setPrefix(e.target.value)} />
           </div>
-          {game === 'market-share' ? (
+          {game === 'key-accounts' ? (
+            <>
+              <div>
+                <label className="label" htmlFor="mm">Mỗi tháng tiếp cận</label>
+                <select id="mm" className="input" value={monthMin} onChange={(e) => setMonthMin(Number(e.target.value))}>
+                  {[3, 4, 5, 6, 8].map((n) => <option key={n} value={n}>{n} phút</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label" htmlFor="bm">Đọc hồ sơ (thêm vào tháng 1)</label>
+                <select id="bm" className="input" value={briefMin} onChange={(e) => setBriefMin(Number(e.target.value))}>
+                  {[0, 2, 3, 5].map((n) => <option key={n} value={n}>{n ? `${n} phút` : 'Không'}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label" htmlFor="bid">Vòng nộp hồ sơ</label>
+                <select id="bid" className="input" value={bidMin} onChange={(e) => setBidMin(Number(e.target.value))}>
+                  {[3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} phút</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label" htmlFor="rs3">Sang vòng mới</label>
+                <select id="rs3" className="input" value={resultsSec} onChange={(e) => setResultsSec(Number(e.target.value))}>
+                  <option value={0}>Giảng viên bấm</option>
+                  {[60, 90, 120].map((n) => <option key={n} value={n}>Tự động sau {n} giây</option>)}
+                </select>
+              </div>
+            </>
+          ) : game === 'market-share' ? (
             <>
               <div>
                 <label className="label" htmlFor="dm">Thời gian quyết định mỗi quý</label>
@@ -172,6 +209,7 @@ export function Facilitator() {
               const day = new Date().toISOString().slice(0, 10);
               if (liveQuiz.length) downloadText(`ket-qua-tham-tu-ai-${day}.csv`, resultsCsv(liveQuiz));
               if (liveMarket.length) downloadText(`ket-qua-dau-truong-thi-phan-${day}.csv`, marketCsv(liveMarket));
+              if (liveAbm.length) downloadText(`ket-qua-san-hop-dong-${day}.csv`, abmCsv(liveAbm));
             }}
           >
             ⬇ Xuất kết quả (Excel/CSV)
@@ -196,6 +234,8 @@ function RoomCard({ hosted, onSnapshot, onRemove }: { hosted: HostedRoom; onSnap
   useAutoAdvance(room, now, hosted.hostToken);
   const isMarket = (room as unknown as { game?: string } | null | undefined)?.game === 'market-share';
   useMarketAutoAdvance(room && isMarket ? asMarket(room) : null, now, hosted.hostToken);
+  const isAbm = isAbmRoom(room);
+  useAbmAutoAdvance(room && isAbm ? asAbm(room) : null, now, hosted.hostToken);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     if (room) onSnapshot(room);
@@ -218,24 +258,37 @@ function RoomCard({ hosted, onSnapshot, onRemove }: { hosted: HostedRoom; onSnap
         <button type="button" className="text-sm" onClick={onRemove}>Bỏ</button>
       </div>
     );
-  const top = isMarket ? [] : rankPlayers(room).slice(0, 3);
+  const top = isMarket || isAbm ? [] : rankPlayers(room).slice(0, 3);
   const m = isMarket ? asMarket(room) : null;
+  const k = isAbm ? asAbm(room) : null;
   const humans = humansOf(room).length;
   return (
     <div className="card space-y-3">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="font-bold">{room.title} <span className="text-xs font-normal text-ink/50">{m ? '· Thị phần' : '· Thám tử AI'}</span></p>
+          <p className="font-bold">{room.title} <span className="text-xs font-normal text-ink/50">{k ? '· Săn hợp đồng' : m ? '· Thị phần' : '· Thám tử AI'}</span></p>
           <p className="text-3xl font-extrabold tracking-[0.2em]">{room.code}</p>
         </div>
         <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${room.status === 'lobby' ? 'bg-amber/25' : room.status === 'finished' ? 'bg-ink/10' : 'bg-ok/15 text-ok'}`}>{statusLabel(room)}</span>
       </div>
       <p className="text-sm text-ink/60">
         👥 {humans} người{room.status !== 'lobby' ? ` + ${room.order.length - humans} máy` : ''} ·{' '}
-        {m ? `${m.quarters} quý · ${m.settings.decideSec ? `${Math.round(m.settings.decideSec / 60)} phút/quý` : 'không giới hạn'}` : `${room.settings.questionCount} câu · ${room.settings.autoNextSec ? `tự chuyển ${room.settings.autoNextSec}s` : 'GV bấm chuyển'}`}
+        {k ? `${MONTHS} tháng + nộp hồ sơ · ${k.settings.monthSec ? `${Math.round(k.settings.monthSec / 60)} phút/tháng` : 'không giới hạn'}` : m ? `${m.quarters} quý · ${m.settings.decideSec ? `${Math.round(m.settings.decideSec / 60)} phút/quý` : 'không giới hạn'}` : `${room.settings.questionCount} câu · ${room.settings.autoNextSec ? `tự chuyển ${room.settings.autoNextSec}s` : 'GV bấm chuyển'}`}
       </p>
       {room.status === 'lobby' ? (
         <p className="min-h-[3rem] text-sm">{room.order.map((id) => room.players[id]?.name).join(', ') || <span className="text-ink/40">Chưa có ai vào…</span>}</p>
+      ) : k ? (
+        <ol className="min-h-[3rem] space-y-0.5 text-sm">
+          {k.status === 'finished' &&
+            abmRanked(k).slice(0, 3).map((id) => (
+              <li key={id} className="flex justify-between">
+                <span className="truncate">{k.standings[id]?.rank ?? '–'}. {k.players[id]?.bot ? '🤖 ' : ''}{k.players[id]?.name}</span>
+                <b className="tabular-nums">{k.standings[id]?.contracts ?? 0} HĐ · {(k.standings[id]?.net ?? 0).toFixed(1)} tỷ</b>
+              </li>
+            ))}
+          {k.status === 'decide' && <li className="text-ink/60">Đã nộp: {k.order.filter((id) => k.players[id]?.bot || k.submitted[id]).length}/{k.order.length}</li>}
+          {k.status === 'results' && <li className="text-ink/60">Đang xem kết quả tháng {k.round}</li>}
+        </ol>
       ) : m ? (
         <ol className="min-h-[3rem] space-y-0.5 text-sm">
           {rankedIds(m).slice(0, 3).map((id) => (
@@ -259,9 +312,13 @@ function RoomCard({ hosted, onSnapshot, onRemove }: { hosted: HostedRoom; onSnap
         {room.status === 'reveal' && <button type="button" className="btn-primary px-3 py-1.5 text-sm" onClick={() => run(() => api.advance(room.code, { hostToken: hosted.hostToken, expectStatus: 'reveal', expectQIndex: room.qIndex }))}>Câu tiếp →</button>}
         {m?.status === 'decide' && m.deadline !== null && <button type="button" className="btn-ghost px-3 py-1.5 text-sm" onClick={() => run(() => api.extend(m.code, hosted.hostToken))}>+1 phút</button>}
         {m?.status === 'decide' && <button type="button" className="btn-ghost px-3 py-1.5 text-sm" onClick={() => window.confirm(`Chốt quý ${m.quarter} của ${m.title} ngay?`) && run(() => api.advance(m.code, { hostToken: hosted.hostToken, expectStatus: 'decide', expectQuarter: m.quarter }))}>Chốt quý</button>}
+        {k?.status === 'decide' && k.deadline !== null && <button type="button" className="btn-ghost px-3 py-1.5 text-sm" onClick={() => run(() => api.extend(k.code, hosted.hostToken))}>+1 phút</button>}
+        {k?.status === 'decide' && <button type="button" className="btn-ghost px-3 py-1.5 text-sm" onClick={() => window.confirm(`Chốt ${k.round > MONTHS ? 'hồ sơ' : `tháng ${k.round}`} của ${k.title} ngay?`) && run(() => api.advance(k.code, { hostToken: hosted.hostToken, expectStatus: 'decide', expectQuarter: k.round }))}>{k.round > MONTHS ? 'Trao hợp đồng' : 'Chốt tháng'}</button>}
+        {k?.status === 'results' && <button type="button" className="btn-primary px-3 py-1.5 text-sm" onClick={() => run(() => api.advance(k.code, { hostToken: hosted.hostToken, expectStatus: 'results', expectQuarter: k.round }))}>{k.round >= MONTHS ? 'Nộp hồ sơ →' : 'Tháng tiếp →'}</button>}
+        {k?.status === 'finished' && !k.hidden && <button type="button" className="btn-ghost px-3 py-1.5 text-sm" onClick={() => run(() => api.reveal(k.code, hosted.hostToken))}>🔓 Lật phần ẩn</button>}
         {m?.status === 'results' && <button type="button" className="btn-primary px-3 py-1.5 text-sm" onClick={() => run(() => api.advance(m.code, { hostToken: hosted.hostToken, expectStatus: 'results', expectQuarter: m.quarter }))}>Quý tiếp →</button>}
         <a href={`/gv/${room.code}`} target="_blank" rel="noreferrer" className="btn-dark px-3 py-1.5 text-sm">🖥 Màn hình chiếu</a>
-        {(room.status === 'question' || room.status === 'reveal' || (m && (m.status === 'decide' || m.status === 'results'))) && (
+        {(room.status === 'question' || room.status === 'reveal' || ((m || k) && ((room.status as string) === 'decide' || (room.status as string) === 'results'))) && (
           <button type="button" className="btn-ghost px-3 py-1.5 text-sm" onClick={() => window.confirm(`Kết thúc sớm ${room.title}?`) && run(() => api.end(room.code, hosted.hostToken))}>Kết thúc</button>
         )}
         <button type="button" className="btn-ghost px-3 py-1.5 text-sm" title={joinUrl(room.code)} onClick={() => void navigator.clipboard?.writeText(joinUrl(room.code))}>📋 Link</button>

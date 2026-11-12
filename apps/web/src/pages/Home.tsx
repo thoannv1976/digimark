@@ -9,7 +9,7 @@ export function Home() {
   const nav = useNavigate();
   const [code, setCode] = useState('');
   const lti = getLti();
-  const [game, setGame] = useState<'ai-detective' | 'market-share'>(lti?.activity === 'market-share' ? 'market-share' : 'ai-detective');
+  const [game, setGame] = useState<'ai-detective' | 'market-share' | 'key-accounts'>(lti?.activity === 'market-share' || lti?.activity === 'key-accounts' ? lti.activity : 'ai-detective');
   const [name, setNameState] = useState(lti?.role === 'learner' ? lti.name : getName());
   const [level, setLevel] = useState<BotLevel>('medium');
   const [count, setCount] = useState(15);
@@ -32,7 +32,9 @@ export function Home() {
       const r = await api.createRoom({
         hostPlays: true,
         hostName: n,
-        ...(game === 'market-share'
+        ...(game === 'key-accounts'
+          ? { game, settings: { botLevel: level, fillBots: true, monthSec: withBotsNow ? 0 : 300 } }
+          : game === 'market-share'
           ? { game, settings: { botLevel: level, fillBots: true, decideSec: withBotsNow ? 0 : 300 } }
           : { settings: { botLevel: level, questionCount: count, fillBots: true } }),
         ...(lti?.role === 'learner' ? { ltiSession: lti.session } : {}),
@@ -50,10 +52,11 @@ export function Home() {
   return (
     <Shell right={<Link to="/gv" className="text-sm font-medium text-white/80 hover:text-white">Giảng viên →</Link>}>
       <MoodleBanner lti={lti?.role === 'learner' ? lti : null} role="learner" game={game} />
-      <div className="mb-3 grid grid-cols-2 gap-2">
+      <div className="mb-3 grid grid-cols-3 gap-2">
         {([
+          ['market-share', '📈 Thị phần'],
           ['ai-detective', '🔍 Thám tử AI'],
-          ['market-share', '📈 Đấu trường Thị phần'],
+          ['key-accounts', '🤝 Săn hợp đồng'],
         ] as const).map(([id, name]) => (
           <button key={id} type="button" onClick={() => setGame(id)} className={`rounded-xl px-3 py-2 text-sm font-bold ring-1 ${game === id ? 'bg-ink text-white ring-ink' : 'bg-white ring-ink/15'}`}>
             {name}
@@ -65,6 +68,12 @@ export function Home() {
           <p className="text-sm font-semibold uppercase tracking-widest text-amber">Game 2</p>
           <h1 className="mt-1 text-3xl font-extrabold">Thám tử AI</h1>
           <p className="mt-2 text-white/80">Đấu nhanh 6 người: bắt lỗi bài AI viết, phân loại dữ liệu, chọn prompt, đọc số liệu và xử lý khủng hoảng. Nhanh và đúng thì thắng.</p>
+        </section>
+      ) : game === 'key-accounts' ? (
+        <section className="mb-5 rounded-2xl bg-ink p-5 text-white">
+          <p className="text-sm font-semibold uppercase tracking-widest text-amber">Game 3</p>
+          <h1 className="mt-1 text-3xl font-extrabold">Săn hợp đồng trọng điểm</h1>
+          <p className="mt-2 text-white/80">ABM cho hạt nhựa PP (tình huống C): 6 nhà cung cấp săn 8 nhà máy thật. Tìm hiểu nhóm mua 5 vai, tiếp cận đúng người bằng đúng bằng chứng trong 3 tháng, rồi nộp hồ sơ. Không giảm giá để giành khách.</p>
         </section>
       ) : (
         <section className="mb-5 rounded-2xl bg-ink p-5 text-white">

@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { BOT_LEVEL_LABEL, CATEGORY_LABEL, type Category, type PlayerPublic, type RevealPublic, type RoomDoc } from '@arena/types';
 import { ARCHETYPE_INFO, type MarketRoomDoc } from '@arena/market';
+import { ABM_ARCHETYPE_INFO, MONTHS, type AbmRoomDoc } from '@arena/abm';
 import { rankPlayers } from '../lib/hooks';
 
 export function Shell({ children, wide, right }: { children: ReactNode; wide?: boolean; right?: ReactNode }) {
@@ -30,8 +31,8 @@ export function MoodleBanner({ lti, role, game }: { lti: { contextTitle: string 
       {lti.contextTitle ? ` · ${lti.contextTitle}` : ''}.{' '}
       {role === 'learner'
         ? lti.graded
-          ? game === 'market-share'
-            ? 'Hết 5 quý, điểm (70% thẻ mục tiêu + 30% thứ hạng) được gửi về Sổ điểm (lấy lần cao nhất).'
+          ? game === 'market-share' || game === 'key-accounts'
+            ? `Khi ${game === 'market-share' ? 'hết 5 quý' : 'trao xong hợp đồng'}, điểm (70% thẻ mục tiêu + 30% thứ hạng) được gửi về Sổ điểm (lấy lần cao nhất).`
             : 'Kết thúc mỗi trận, tỷ lệ câu đúng được gửi về Sổ điểm (lấy lần cao nhất).'
           : 'Hoạt động này không lấy điểm.'
         : 'Học viên mở hoạt động trong Moodle rồi nhập mã phòng; khi phòng kết thúc, điểm tự về Sổ điểm.'}
@@ -126,6 +127,12 @@ export const joinUrl = (code: string) => `${window.location.origin}/p/${code}`;
 
 export function statusLabel(room: RoomDoc): string {
   if (room.status === 'lobby') return 'Đang chờ';
+  if ((room as unknown as AbmRoomDoc).game === 'key-accounts') {
+    const a = room as unknown as AbmRoomDoc;
+    if (a.status === 'finished') return 'Đã kết thúc';
+    if (a.round > MONTHS) return 'Nộp hồ sơ';
+    return `Tháng ${a.round}/${MONTHS}${a.status === 'results' ? ' · kết quả' : ' · tiếp cận'}`;
+  }
   if ((room as unknown as MarketRoomDoc).game === 'market-share') {
     const m = room as unknown as MarketRoomDoc;
     if (m.status === 'finished') return 'Đã kết thúc';
@@ -183,6 +190,36 @@ export function marketCsv(rooms: MarketRoomDoc[]): string {
         s ? s.profitCum.toFixed(2) : '',
         s ? String(s.scorecard) : '',
         String(room.history.length),
+      ]);
+    }
+  }
+  const esc = (v: string) => (/[",\n;]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  return '\ufeff' + lines.map((l) => l.map(esc).join(',')).join('\r\n');
+}
+
+/** Game 3 results (one row per supplier). */
+export function abmCsv(rooms: AbmRoomDoc[]): string {
+  const header = ['Phòng', 'Mã phòng', 'Hạng', 'Nhà cung cấp', 'Loại', 'Gửi Moodle', 'Hợp đồng thắng', 'Hồ sơ đã nộp', 'Lãi gộp (tỷ)', 'Chi tiếp cận (tỷ)', 'Lãi ròng (tỷ)', 'Thẻ mục tiêu (/100)', 'Nhà máy thắng'];
+  const lines = [header];
+  for (const room of rooms) {
+    const ids = room.order.slice().sort((a, b) => (room.standings[a]?.rank ?? 99) - (room.standings[b]?.rank ?? 99));
+    for (const id of ids) {
+      const p = room.players[id]!;
+      const s = room.standings[id];
+      lines.push([
+        room.title,
+        room.code,
+        room.status === 'finished' ? String(s?.rank ?? '') : '',
+        p.name,
+        p.bot ? `Máy (${p.archetype ? ABM_ARCHETYPE_INFO[p.archetype] : ''})` : 'Người',
+        p.lms ? (room.lmsStatus?.[id] === 'sent' ? 'Đã gửi' : room.lmsStatus?.[id] === 'error' ? 'Lỗi' : 'Chờ') : '',
+        s ? String(s.contracts) : '',
+        s ? String(s.bids) : '',
+        s ? s.gp.toFixed(2) : '',
+        s ? s.cost.toFixed(2) : '',
+        s ? s.net.toFixed(2) : '',
+        s ? String(s.scorecard) : '',
+        (room.awards ?? []).filter((a) => a.winner === id).map((a) => a.factory).join(' '),
       ]);
     }
   }

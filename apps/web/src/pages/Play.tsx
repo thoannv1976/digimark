@@ -6,6 +6,8 @@ import { AnswerArea, AnswerReview, CategoryChip, QuestionHeader } from '../compo
 import { api } from '../lib/api';
 import { MarketPlay } from '../market/MarketPlay';
 import { asMarket, useMarketAutoAdvance } from '../market/parts';
+import { AbmPlay } from '../abm/AbmPlay';
+import { asAbm, isAbmRoom, useAbmAutoAdvance } from '../abm/parts';
 import { answeredCount, humansOf, rankPlayers, useAutoAdvance, useNow, useRoom } from '../lib/hooks';
 import { clearSession, getHint, getLti, getName, getSession, setHint, setName, setSession, type Session } from '../lib/storage';
 
@@ -17,9 +19,11 @@ export function Play() {
   useAutoAdvance(room, now, session?.hostToken);
   const isMarket = (room as unknown as { game?: string } | null | undefined)?.game === 'market-share';
   useMarketAutoAdvance(room && isMarket ? asMarket(room) : null, now, session?.hostToken);
+  const isAbm = isAbmRoom(room);
+  useAbmAutoAdvance(room && isAbm ? asAbm(room) : null, now, session?.hostToken);
 
   // Each new screen (question, answer, final) starts at the top.
-  const screenKey = room ? `${room.status}:${room.qIndex}` : '';
+  const screenKey = room ? `${room.status}:${room.qIndex}:${(room as unknown as { round?: number }).round ?? ''}` : '';
   useEffect(() => {
     if (screenKey) window.scrollTo({ top: 0 });
   }, [screenKey]);
@@ -48,6 +52,16 @@ export function Play() {
 
   const me = room.players[session.playerId];
   if (!me) return null;
+  if (isAbm) {
+    const a = asAbm(room);
+    const st = a.standings[session.playerId];
+    return (
+      <Shell right={<span className="max-w-[55%] truncate text-sm text-white/80">{me.name}{st && a.status === 'finished' ? <> · hạng <b className="text-amber">{st.rank}</b></> : null}</span>}>
+        <ErrorNote text={error} />
+        <AbmPlay room={a} session={session} now={now} />
+      </Shell>
+    );
+  }
   if (isMarket) {
     const m = asMarket(room);
     const st = m.standings[session.playerId];
@@ -99,8 +113,8 @@ function JoinForm({ room, onJoined }: { room: RoomDoc; onJoined: (s: Session) =>
           <p className="text-sm text-ink/60">Phòng {room.code}</p>
           <h1 className="text-2xl font-extrabold">{room.title}</h1>
           <p className="mt-1 text-sm text-ink/60">
-            {(room as unknown as { game?: string }).game === 'market-share' ? 'Đấu trường Thị phần · ' : 'Thám tử AI · '}
-            {room.order.length}/{MAX_SEATS} người · {room.status === 'lobby' ? 'đang chờ bắt đầu' : room.status === 'finished' ? 'đã kết thúc' : (room as unknown as { game?: string }).game === 'market-share' ? 'trận đã bắt đầu' : 'đang chơi (vẫn vào được)'}
+            {(room as unknown as { game?: string }).game === 'market-share' ? 'Đấu trường Thị phần · ' : (room as unknown as { game?: string }).game === 'key-accounts' ? 'Săn hợp đồng trọng điểm · ' : 'Thám tử AI · '}
+            {room.order.length}/{MAX_SEATS} người · {room.status === 'lobby' ? 'đang chờ bắt đầu' : room.status === 'finished' ? 'đã kết thúc' : (room as unknown as { game?: string }).game !== 'ai-detective' ? 'trận đã bắt đầu' : 'đang chơi (vẫn vào được)'}
           </p>
         </div>
         {room.status === 'finished' || full ? (

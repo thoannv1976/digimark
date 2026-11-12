@@ -53,7 +53,7 @@ export interface LtiSession {
   name: string;
   contextTitle: string | null;
   graded: boolean;
-  /** Moodle activity: 'ai-detective' | 'market-share' | 'arena'. */
+  /** Moodle activity: 'ai-detective' | 'market-share' | 'key-accounts' | 'arena'. */
   activity?: string | null;
   at: number;
 }

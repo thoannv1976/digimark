@@ -8,7 +8,10 @@ import { answeredCount, rankPlayers, useAutoAdvance, useNow, useRoom } from '../
 import { getHostedRooms, getSession } from '../lib/storage';
 import { MarketScreen } from '../market/MarketScreen';
 import { asMarket, useMarketAutoAdvance } from '../market/parts';
-import { marketCsv } from '../components/common';
+import { abmCsv, marketCsv } from '../components/common';
+import { AbmScreen, useAwardStepper } from '../abm/AbmScreen';
+import { asAbm, isAbmRoom, useAbmAutoAdvance } from '../abm/parts';
+import { MONTHS, type AbmRoomDoc } from '@arena/abm';
 
 /** Projector screen for one room. Host controls appear when this browser created the room. */
 export function Screen() {
@@ -19,6 +22,9 @@ export function Screen() {
   useAutoAdvance(room, now, hostToken);
   const isMarket = (room as unknown as { game?: string } | null | undefined)?.game === 'market-share';
   useMarketAutoAdvance(room && isMarket ? asMarket(room) : null, now, hostToken);
+  const isAbm = isAbmRoom(room);
+  useAbmAutoAdvance(room && isAbm ? asAbm(room) : null, now, hostToken);
+  const stepper = useAwardStepper(room && isAbm ? asAbm(room) : null, Boolean(hostToken));
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -40,21 +46,23 @@ export function Screen() {
   return (
     <div className="min-h-screen bg-paper">
       <header className="flex items-center justify-between bg-ink px-6 py-3 text-white">
-        <span className="text-xl font-extrabold">{isMarket ? '📈 Đấu trường Thị phần' : '🔍 Thám tử AI'} · <span className="text-amber">{room.title}</span></span>
+        <span className="text-xl font-extrabold">{isAbm ? '🤝 Săn hợp đồng trọng điểm' : isMarket ? '📈 Đấu trường Thị phần' : '🔍 Thám tử AI'} · <span className="text-amber">{room.title}</span></span>
         <span className="text-lg">
           Mã phòng <b className="text-2xl tracking-[0.2em] text-amber">{room.code}</b>
         </span>
       </header>
       <main className="mx-auto max-w-6xl space-y-5 p-6">
         <ErrorNote text={error ?? actionError} />
+        {isAbm && <AbmScreen room={asAbm(room)} now={now} shown={stepper.shown} />}
         {isMarket && <MarketScreen room={asMarket(room)} now={now} />}
-        {!isMarket && room.status === 'lobby' && <LobbyScreen room={room} />}
-        {!isMarket && room.status === 'question' && <QuestionScreen room={room} now={now} />}
-        {!isMarket && room.status === 'reveal' && <RevealScreen room={room} now={now} />}
-        {!isMarket && room.status === 'finished' && <FinalScreen room={room} />}
+        {!isMarket && !isAbm && room.status === 'lobby' && <LobbyScreen room={room} />}
+        {!isMarket && !isAbm && room.status === 'question' && <QuestionScreen room={room} now={now} />}
+        {!isMarket && !isAbm && room.status === 'reveal' && <RevealScreen room={room} now={now} />}
+        {!isMarket && !isAbm && room.status === 'finished' && <FinalScreen room={room} />}
 
+        {hostToken && isAbm && <AbmControls room={asAbm(room)} hostToken={hostToken} busy={busy} run={run} stepper={stepper} />}
         {hostToken && isMarket && <MarketControls room={asMarket(room)} hostToken={hostToken} busy={busy} run={run} />}
-        {hostToken && !isMarket && (
+        {hostToken && !isMarket && !isAbm && (
           <div className="flex flex-wrap justify-center gap-3 pt-2">
             {room.status === 'lobby' && (
               <button type="button" className="btn-primary px-8 py-3 text-xl" disabled={busy || !room.order.length} onClick={() => run(() => api.start(room.code, hostToken))}>
@@ -107,6 +115,56 @@ function MarketControls({ room, hostToken, busy, run }: { room: import('@arena/m
         <button type="button" className="btn-dark" onClick={() => downloadText(`ket-qua-thi-phan-${room.code}.csv`, marketCsv([room]))}>
           ⬇ Xuất kết quả
         </button>
+      )}
+    </div>
+  );
+}
+
+function AbmControls({ room, hostToken, busy, run, stepper }: { room: AbmRoomDoc; hostToken: string; busy: boolean; run: (fn: () => Promise<unknown>) => Promise<void>; stepper: ReturnType<typeof useAwardStepper> }) {
+  const bid = room.round > MONTHS;
+  return (
+    <div className="flex flex-wrap justify-center gap-3 pt-2">
+      {room.status === 'lobby' && (
+        <button type="button" className="btn-primary px-8 py-3 text-xl" disabled={busy || !room.order.length} onClick={() => run(() => api.start(room.code, hostToken))}>
+          ▶ Bắt đầu
+        </button>
+      )}
+      {room.status === 'decide' && (
+        <>
+          {room.deadline !== null && (
+            <button type="button" className="btn-ghost" disabled={busy} onClick={() => run(() => api.extend(room.code, hostToken))}>
+              +1 phút
+            </button>
+          )}
+          <button type="button" className="btn-dark" disabled={busy} onClick={() => window.confirm(bid ? 'Chốt hồ sơ và trao hợp đồng ngay?' : `Chốt tháng ${room.round} ngay? Ai chưa nộp coi như không làm gì tháng này.`) && run(() => api.advance(room.code, { hostToken, expectStatus: 'decide', expectQuarter: room.round }))}>
+            {bid ? 'Chốt hồ sơ, trao hợp đồng' : 'Chốt tháng ngay'}
+          </button>
+        </>
+      )}
+      {room.status === 'results' && (
+        <button type="button" className="btn-primary px-8 py-3 text-xl" disabled={busy} onClick={() => run(() => api.advance(room.code, { hostToken, expectStatus: 'results', expectQuarter: room.round }))}>
+          {room.round >= MONTHS ? 'Sang vòng nộp hồ sơ →' : `Sang tháng ${room.round + 1} →`}
+        </button>
+      )}
+      {room.status === 'finished' && (
+        <>
+          {stepper.shown < stepper.total && (
+            <>
+              <button type="button" className="btn-primary px-8 py-3 text-xl" onClick={stepper.next}>
+                Công bố nhà máy tiếp ({stepper.shown + 1}/{stepper.total})
+              </button>
+              <button type="button" className="btn-ghost" onClick={stepper.all}>Công bố tất cả</button>
+            </>
+          )}
+          {!room.hidden && (
+            <button type="button" className="btn-dark" disabled={busy} onClick={() => run(() => api.reveal(room.code, hostToken))}>
+              🔓 Lật phần ẩn
+            </button>
+          )}
+          <button type="button" className="btn-ghost" onClick={() => downloadText(`ket-qua-san-hop-dong-${room.code}.csv`, abmCsv([room]))}>
+            ⬇ Xuất kết quả
+          </button>
+        </>
       )}
     </div>
   );

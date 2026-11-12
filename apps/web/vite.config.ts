@@ -8,9 +8,12 @@ const typesAlias = { find: /^@arena\/types$/, replacement: fileURLToPath(new URL
 // Game 1 public types and display content (no true preferences: those stay in market/model.ts on the server).
 const marketAlias = { find: /^@arena\/market$/, replacement: fileURLToPath(new URL('../../packages/engine/src/market/types.ts', import.meta.url)) };
 
+// Game 3 public types (no hidden committees: those stay in abm/model.ts on the server).
+const abmAlias = { find: /^@arena\/abm$/, replacement: fileURLToPath(new URL('../../packages/engine/src/abm/types.ts', import.meta.url)) };
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  resolve: { alias: [typesAlias, marketAlias] },
+  resolve: { alias: [typesAlias, marketAlias, abmAlias] },
   server: {
     port: 5173,
     strictPort: true,

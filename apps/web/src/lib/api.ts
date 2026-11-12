@@ -46,9 +46,12 @@ async function call<T>(method: 'GET' | 'POST', path: string, body?: object): Pro
 
 export const api = {
   time: () => call<{ serverNow: number }>('GET', '/time'),
-  createRoom: (body: { hostPlays: boolean; hostName?: string; title?: string; settings?: Partial<RoomSettings> }) =>
+  ltiLaunch: (ticket: string) =>
+    call<{ session: string; role: 'instructor' | 'learner'; name: string; contextTitle: string | null; graded: boolean }>('POST', '/lti/launch', { ticket }),
+  createRoom: (body: { hostPlays: boolean; hostName?: string; title?: string; settings?: Partial<RoomSettings>; ltiSession?: string }) =>
     call<{ code: string; hostToken: string; playerId?: string; playerToken?: string }>('POST', '/rooms', body),
-  join: (code: string, name: string) => call<{ playerId: string; playerToken: string }>('POST', `/rooms/${code}/join`, { name }),
+  join: (code: string, name: string, ltiSession?: string) =>
+    call<{ playerId: string; playerToken: string }>('POST', `/rooms/${code}/join`, { name, ...(ltiSession ? { ltiSession } : {}) }),
   start: (code: string, hostToken: string) => call<{ ok: true }>('POST', `/rooms/${code}/start`, { hostToken }),
   kick: (code: string, hostToken: string, playerId: string) => call<{ ok: true }>('POST', `/rooms/${code}/kick`, { hostToken, playerId }),
   end: (code: string, hostToken: string) => call<{ ok: true }>('POST', `/rooms/${code}/end`, { hostToken }),

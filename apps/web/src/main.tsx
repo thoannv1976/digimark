@@ -7,6 +7,7 @@ import { Home } from './pages/Home';
 import { Play } from './pages/Play';
 import { Facilitator } from './pages/Facilitator';
 import { Screen } from './pages/Screen';
+import { LtiLaunch } from './pages/LtiLaunch';
 
 syncTimeOnce();
 
@@ -18,6 +19,7 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/p/:code" element={<Play />} />
         <Route path="/gv" element={<Facilitator />} />
         <Route path="/gv/:code" element={<Screen />} />
+        <Route path="/lti-launch" element={<LtiLaunch />} />
         <Route path="*" element={<Home />} />
       </Routes>
     </BrowserRouter>

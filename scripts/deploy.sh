@@ -29,7 +29,8 @@ gcloud run deploy arena-api --project "${PROJECT_ID}" --region "${REGION}" --ima
   --service-account "${RUNTIME_SA}" --allow-unauthenticated \
   --memory 512Mi --cpu 1 --concurrency 80 --timeout 60 \
   --min-instances "${MIN_INSTANCES:-0}" --max-instances "${MAX_INSTANCES:-5}" \
-  --set-env-vars "NODE_ENV=production,GCP_PROJECT_ID=${PROJECT_ID},FIRESTORE_DATABASE=${DB}"
+  --update-env-vars "NODE_ENV=production,GCP_PROJECT_ID=${PROJECT_ID},FIRESTORE_DATABASE=${DB}"
+# LTI_ENABLED / LTI_HUB_URL / LTI_GAME_ID / LTI_GAME_SECRET are set once by finish-digimark-lti.sh and kept here.
 
 echo "==> Building web"
 npm run build --workspace @arena/web

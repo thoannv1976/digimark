@@ -11,7 +11,7 @@ let clock = 1_800_000_000_000;
 
 beforeAll(async () => {
   if (!process.env.FIRESTORE_EMULATOR_HOST) throw new Error('FIRESTORE_EMULATOR_HOST is not set – run through firebase emulators:exec');
-  app = await buildApp({ db, now: () => clock });
+  app = await buildApp({ db, now: () => clock, logger: process.env.LOG === '1' });
 });
 afterAll(async () => app?.close());
 

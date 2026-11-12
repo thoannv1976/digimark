@@ -47,5 +47,20 @@ export interface HostedRoom {
 export const getHostedRooms = () => read<HostedRoom[]>('arena:gv:rooms', []);
 export const setHostedRooms = (rooms: HostedRoom[]) => write('arena:gv:rooms', rooms);
 
+export interface LtiSession {
+  session: string;
+  role: 'instructor' | 'learner';
+  name: string;
+  contextTitle: string | null;
+  graded: boolean;
+  at: number;
+}
+const LTI_MAX_AGE = 12 * 3600 * 1000;
+export function getLti(): LtiSession | null {
+  const s = read<LtiSession | null>('arena:lti', null);
+  return s && Date.now() - s.at < LTI_MAX_AGE ? s : null;
+}
+export const setLti = (s: LtiSession | null) => write('arena:lti', s);
+
 export const getHint = (code: string, qIndex: number) => read<HintPayload | null>(`arena:hint:${code}:${qIndex}`, null);
 export const setHint = (code: string, qIndex: number, hint: HintPayload) => write(`arena:hint:${code}:${qIndex}`, hint);

@@ -39,7 +39,7 @@ export function QuestionHeader({ q, big }: { q: PublicQuestion; big?: boolean })
             <tbody>
               {q.table.rows.map((r, i) => (
                 <tr key={i} className="odd:bg-white even:bg-ink/5">
-                  {r.map((c, j) => <td key={j} className="px-3 py-2">{c}</td>)}
+                  {r.cells.map((c, j) => <td key={j} className="px-3 py-2">{c}</td>)}
                 </tr>
               ))}
             </tbody>

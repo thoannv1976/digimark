@@ -282,3 +282,40 @@ describe('room flow', () => {
     expect(pubText).not.toContain(priv.hostToken);
   });
 });
+
+describe('Firestore compatibility', () => {
+  // Firestore rejects arrays nested directly in arrays ("invalid nested entity").
+  function nestedArrayPath(v: unknown, path = '$'): string | null {
+    if (Array.isArray(v)) {
+      for (let i = 0; i < v.length; i++) {
+        if (Array.isArray(v[i])) return `${path}[${i}]`;
+        const inner = nestedArrayPath(v[i], `${path}[${i}]`);
+        if (inner) return inner;
+      }
+    } else if (v && typeof v === 'object') {
+      for (const [k, x] of Object.entries(v)) {
+        const inner = nestedArrayPath(x, `${path}.${k}`);
+        if (inner) return inner;
+      }
+    }
+    return null;
+  }
+
+  it('every question, reveal and private state can be stored in Firestore', () => {
+    for (const q of bank) {
+      const { pub, key } = preparePublic(q, seededRng(q.id));
+      expect(nestedArrayPath(pub), q.id).toBeNull();
+      expect(nestedArrayPath(key), q.id).toBeNull();
+    }
+    const rng = seededRng('fs');
+    const { room, priv, player } = createRoom({ code: 'FSFSF', hostPlays: true, hostName: 'A', settings: { questionCount: 30 } }, 0, rng);
+    startGame(room, priv, bank, 1000, rng);
+    while (room.status !== 'finished') {
+      expect(nestedArrayPath(room)).toBeNull();
+      expect(nestedArrayPath(priv)).toBeNull();
+      submitAnswer(room, priv, bank, player!.playerId, room.qIndex, rightInput(priv), room.current!.openedAt);
+      expect(nestedArrayPath(room)).toBeNull();
+      advance(room, priv, bank, room.reveal!.revealedAt, { isHost: true });
+    }
+  });
+});

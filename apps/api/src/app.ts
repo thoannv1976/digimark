@@ -13,23 +13,41 @@ import {
   createRoom,
   finishGame,
   joinRoom,
+  lmsResults,
   randomRoomCode,
   removePlayer,
   startGame,
   submitAnswer,
   useHint,
   type BankQuestion,
+  type LmsBinding,
+  type LmsResult,
   type Rng,
   type RoomDoc,
   type RoomPrivate,
 } from '@arena/engine';
+import { displayName, submitResult, verifyTicket, type LtiConfig } from './lti.js';
 
 export interface AppDeps {
   db: Firestore;
   now?: () => number;
   bank?: readonly BankQuestion[];
   logger?: boolean;
+  /** Moodle via UniGame Hub; null/undefined = off. */
+  lti?: LtiConfig | null;
 }
+
+/** A Moodle launch, kept 12 h so the student can create or join rooms without a new launch. */
+interface LtiSession {
+  hubUserId: string;
+  name: string;
+  role: 'instructor' | 'learner';
+  gradeTarget?: string;
+  contextTitle?: string;
+  tenantId: string;
+  expireAt: Date;
+}
+const LTI_SESSION_MS = 12 * 3600 * 1000;
 
 /** Rooms are kept 3 days (Firestore TTL policy on `expireAt`). */
 const ROOM_TTL_MS = 3 * 24 * 3600 * 1000;
@@ -59,8 +77,10 @@ const schemas = {
     hostPlays: z.boolean(),
     hostName: z.string().max(40).optional(),
     settings,
+    ltiSession: z.string().min(10).max(80).optional(),
   }),
-  join: z.object({ name: z.string().max(40) }),
+  join: z.object({ name: z.string().max(40).optional(), ltiSession: z.string().min(10).max(80).optional() }),
+  launch: z.object({ ticket: z.string().min(20).max(8000) }),
   host: z.object({ hostToken: token }),
   kick: z.object({ hostToken: token, playerId: z.string().max(40) }),
   answer: z.object({ playerId: z.string().max(40), playerToken: token, qIndex: z.number().int().min(0), input: answerInput }),
@@ -101,20 +121,63 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   async function mutate<T>(roomCode: string, fn: (room: RoomDoc, priv: RoomPrivate, t: number) => T): Promise<T> {
     const roomRef = rooms.doc(roomCode);
     const privRef = roomRef.collection('private').doc('state');
-    return db.runTransaction(async (tx) => {
+    let toSend: LmsResult[] = [];
+    const result = await db.runTransaction(async (tx) => {
+      toSend = [];
       const [rs, ps] = await tx.getAll(roomRef, privRef);
       if (!rs?.exists || !ps?.exists) throw new GameError('no_room', 'Không tìm thấy phòng. Kiểm tra lại mã phòng.', 404);
       const room = rs.data() as RoomDoc;
       const priv = ps.data() as RoomPrivate;
       const before = room.version;
-      const result = fn(room, priv, now());
+      const wasFinished = room.status === 'finished';
+      const out = fn(room, priv, now());
       if (room.version !== before) {
         tx.set(roomRef, room);
         tx.set(privRef, priv);
       }
-      return result;
+      if (!wasFinished && room.status === 'finished') toSend = lmsResults(room, priv);
+      return out;
     });
+    if (toSend.length) await sendGrades(roomCode, toSend);
+    return result;
   }
+
+  /** Sends each Moodle player's result to the Hub (which queues and retries delivery to Moodle). */
+  async function sendGrades(roomCode: string, list: LmsResult[]) {
+    const lti = deps.lti;
+    if (!lti) return;
+    const status: Record<string, 'sent' | 'error'> = {};
+    await Promise.all(
+      list.map(async (r) => {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            await submitResult(lti, { gradeTarget: r.binding.gradeTarget, attemptId: r.attemptId, score: r.score, maxScore: 100, occurredAt: r.occurredAt, comment: r.comment });
+            status[r.playerId] = 'sent';
+            return;
+          } catch (err) {
+            app.log.warn({ err, room: roomCode, player: r.playerId }, 'grade submit failed');
+            await new Promise((ok) => setTimeout(ok, 400 * (attempt + 1)));
+          }
+        }
+        status[r.playerId] = 'error';
+      }),
+    );
+    await rooms.doc(roomCode).set({ lmsStatus: status }, { merge: true });
+    await db
+      .collection('ltiResults')
+      .doc(roomCode)
+      .set({ results: list.map((r) => ({ ...r, status: status[r.playerId] })), expireAt: new Date(now() + 90 * 24 * 3600 * 1000) });
+  }
+
+  async function loadLtiSession(id: string | undefined): Promise<LtiSession | null> {
+    if (!id) return null;
+    if (!deps.lti) throw new GameError('lti_off', 'Chưa bật kết nối Moodle.', 404);
+    const snap = await db.collection('ltiSessions').doc(id).get();
+    const s = snap.data() as (Omit<LtiSession, 'expireAt'> & { expireAt: { toMillis(): number } }) | undefined;
+    if (!s || s.expireAt.toMillis() < now()) throw new GameError('lti_expired', 'Phiên mở từ Moodle đã hết hạn. Mở lại hoạt động trong Moodle.', 401);
+    return { ...s, expireAt: new Date(s.expireAt.toMillis()) };
+  }
+  const bindingOf = (s: LtiSession): LmsBinding => ({ hubUserId: s.hubUserId, ...(s.gradeTarget ? { gradeTarget: s.gradeTarget } : {}) });
 
   const parseCode = (params: unknown) => code.parse((params as { code: string }).code);
 
@@ -128,13 +191,45 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   app.get('/api/health', async () => ({ ok: true, questions: bank.length }));
   app.get('/api/time', async () => ({ serverNow: now() }));
 
+  // Moodle -> Hub -> /lti-launch#ticket=... -> here. Off (404) unless LTI is configured; a bad ticket -> 401.
+  app.post('/api/lti/launch', { config: { rateLimit: { max: 120, timeWindow: '1 minute' } } }, async (req, reply) => {
+    const lti = deps.lti;
+    if (!lti) return reply.status(404).send({ error: 'lti_off', message: 'Chưa bật kết nối Moodle.' });
+    const { ticket } = schemas.launch.parse(req.body);
+    let ctx;
+    try {
+      ctx = await verifyTicket(lti, ticket);
+    } catch {
+      return reply.status(401).send({ error: 'LTI_TICKET_INVALID', message: 'Vé đăng nhập từ Moodle không hợp lệ hoặc đã hết hạn. Mở lại hoạt động trong Moodle.' });
+    }
+    try {
+      await db.collection('ltiTickets').doc(ctx.ticketId).create({ expireAt: ctx.expiresAt });
+    } catch {
+      return reply.status(401).send({ error: 'LTI_TICKET_USED', message: 'Vé đăng nhập đã được dùng. Mở lại hoạt động trong Moodle.' });
+    }
+    const id = randomBytes(24).toString('base64url');
+    const session: LtiSession = {
+      hubUserId: ctx.hubUserId,
+      name: displayName(ctx),
+      role: ctx.role,
+      tenantId: ctx.tenantId,
+      ...(ctx.gradeTarget ? { gradeTarget: ctx.gradeTarget } : {}),
+      ...(ctx.context?.title ? { contextTitle: ctx.context.title } : {}),
+      expireAt: new Date(now() + LTI_SESSION_MS),
+    };
+    await db.collection('ltiSessions').doc(id).set(session);
+    return { session: id, role: session.role, name: session.name, contextTitle: session.contextTitle ?? null, graded: Boolean(session.gradeTarget), serverNow: now() };
+  });
+
   app.post('/api/rooms', { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (req) => {
     const body = schemas.create.parse(req.body);
+    const lms = await loadLtiSession(body.ltiSession);
+    if (lms && body.hostPlays && !body.hostName?.trim()) body.hostName = lms.name;
     if (body.hostPlays && !body.hostName?.trim()) throw new GameError('bad_name', 'Vui lòng nhập tên.');
     for (let attempt = 0; attempt < 6; attempt++) {
       const roomCode = randomRoomCode(cryptoRng);
       const t = now();
-      const created = createRoom({ code: roomCode, hostPlays: body.hostPlays, ...(body.title ? { title: body.title } : {}), ...(body.hostName ? { hostName: body.hostName } : {}), ...(body.settings ? { settings: body.settings as never } : {}) }, t, cryptoRng);
+      const created = createRoom({ code: roomCode, hostPlays: body.hostPlays, ...(body.title ? { title: body.title } : {}), ...(body.hostName ? { hostName: body.hostName } : {}), ...(body.settings ? { settings: body.settings as never } : {}), ...(lms && body.hostPlays ? { hostLms: bindingOf(lms) } : {}) }, t, cryptoRng);
       const expireAt = new Date(t + ROOM_TTL_MS);
       const roomRef = rooms.doc(roomCode);
       const ok = await db.runTransaction(async (tx) => {
@@ -158,8 +253,10 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
 
   app.post('/api/rooms/:code/join', async (req) => {
     const roomCode = parseCode(req.params);
-    const { name } = schemas.join.parse(req.body);
-    const player = await mutate(roomCode, (room, priv, t) => joinRoom(room, priv, name, t, cryptoRng));
+    const body = schemas.join.parse(req.body);
+    const lms = await loadLtiSession(body.ltiSession);
+    const name = body.name?.trim() || lms?.name || '';
+    const player = await mutate(roomCode, (room, priv, t) => joinRoom(room, priv, name, t, cryptoRng, lms ? bindingOf(lms) : undefined));
     return { ...player, serverNow: now() };
   });
 

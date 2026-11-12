@@ -20,6 +20,22 @@ export function Shell({ children, wide, right }: { children: ReactNode; wide?: b
   );
 }
 
+/** Shown when the page was opened from Moodle. */
+export function MoodleBanner({ lti, role }: { lti: { contextTitle: string | null; graded: boolean } | null; role: 'learner' | 'instructor' }) {
+  if (!lti) return null;
+  return (
+    <div className="mb-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm leading-relaxed text-emerald-900 ring-1 ring-emerald-200">
+      <b>Đã kết nối Moodle</b>
+      {lti.contextTitle ? ` · ${lti.contextTitle}` : ''}.{' '}
+      {role === 'learner'
+        ? lti.graded
+          ? 'Kết thúc mỗi trận, tỷ lệ câu đúng được gửi về Sổ điểm (lấy lần cao nhất).'
+          : 'Hoạt động này không lấy điểm.'
+        : 'Học viên mở hoạt động trong Moodle rồi nhập mã phòng; khi phòng kết thúc, điểm tự về Sổ điểm.'}
+    </div>
+  );
+}
+
 export function TimerBar({ openedAt, deadline, now, big }: { openedAt: number; deadline: number; now: number; big?: boolean }) {
   const total = deadline - openedAt;
   const left = Math.max(0, deadline - Math.max(now, openedAt));
@@ -41,6 +57,7 @@ export function PlayerName({ p }: { p: PlayerPublic }) {
     <span className="truncate">
       {p.bot ? '🤖 ' : ''}
       {p.name}
+      {p.lms && <span className="ml-1 rounded bg-emerald-100 px-1 text-[10px] font-semibold text-emerald-800 align-middle">Moodle</span>}
       {p.bot && p.level && <span className="ml-1 text-xs font-normal text-ink/50">({BOT_LEVEL_LABEL[p.level]})</span>}
     </span>
   );
@@ -113,7 +130,7 @@ export function statusLabel(room: RoomDoc): string {
 /** CSV (UTF-8 with BOM so Excel shows Vietnamese correctly). */
 export function resultsCsv(rooms: RoomDoc[]): string {
   const cats = Object.keys(CATEGORY_LABEL) as Category[];
-  const header = ['Phòng', 'Mã phòng', 'Hạng', 'Tên', 'Loại', 'Điểm', 'Câu đúng', 'Tổng câu', 'Chuỗi đúng dài nhất', ...cats.map((c) => CATEGORY_LABEL[c])];
+  const header = ['Phòng', 'Mã phòng', 'Hạng', 'Tên', 'Loại', 'Gửi Moodle', 'Điểm', 'Câu đúng', 'Tổng câu', 'Chuỗi đúng dài nhất', ...cats.map((c) => CATEGORY_LABEL[c])];
   const lines = [header];
   for (const room of rooms) {
     rankPlayers(room).forEach((p, i) => {
@@ -123,6 +140,7 @@ export function resultsCsv(rooms: RoomDoc[]): string {
         String(i + 1),
         p.name,
         p.bot ? 'Máy' : 'Người',
+        p.lms ? (room.lmsStatus?.[p.id] === 'sent' ? 'Đã gửi' : room.lmsStatus?.[p.id] === 'error' ? 'Lỗi' : 'Chờ') : '',
         String(p.score),
         String(p.correct),
         String(room.status === 'finished' ? room.qTotal : Math.max(0, room.qIndex + (room.status === 'reveal' ? 1 : 0))),

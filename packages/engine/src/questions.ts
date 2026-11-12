@@ -11,7 +11,7 @@ export function preparePublic(q: BankQuestion, rng: Rng): { pub: PublicQuestion;
     prompt: q.prompt,
     timeLimitSec: timeLimitOf(q),
     ...(q.context ? { context: q.context } : {}),
-    ...(q.table ? { table: q.table } : {}),
+    ...(q.table ? { table: { headers: q.table.headers.slice(), rows: q.table.rows.map((cells) => ({ cells: cells.slice() })) } } : {}),
   };
   if (q.kind === 'choice') {
     const idx = q.options.map((_, i) => i);

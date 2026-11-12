@@ -34,6 +34,14 @@ export interface RoomPrivate {
   answers: Record<string, StoredAnswer>;
   botPlans: Record<string, BotPlan>;
   hints: Record<string, HintPayload>;
+  /** Players who came from Moodle (via UniGame Hub): where their grade goes. */
+  lti?: Record<string, LmsBinding>;
+}
+
+export interface LmsBinding {
+  hubUserId: string;
+  /** Absent when the Moodle activity has no gradebook column. */
+  gradeTarget?: string;
 }
 
 export class GameError extends Error {
@@ -113,6 +121,7 @@ export interface CreateRoomInput {
   hostPlays: boolean;
   hostName?: string;
   settings?: Partial<RoomSettings>;
+  hostLms?: LmsBinding;
 }
 
 export function createRoom(input: CreateRoomInput, now: number, rng: Rng) {
@@ -139,18 +148,27 @@ export function createRoom(input: CreateRoomInput, now: number, rng: Rng) {
   const priv: RoomPrivate = { hostToken: randomToken(rng), tokens: {}, questionIds: [], key: null, answers: {}, botPlans: {}, hints: {} };
   let player: { playerId: string; playerToken: string } | null = null;
   if (input.hostPlays) {
-    player = joinRoom(room, priv, input.hostName ?? '', now, rng);
+    player = joinRoom(room, priv, input.hostName ?? '', now, rng, input.hostLms);
     room.hostPlayerId = player.playerId;
   }
   return { room, priv, hostToken: priv.hostToken, player };
 }
 
-export function joinRoom(room: RoomDoc, priv: RoomPrivate, rawName: string, now: number, rng: Rng) {
+export function joinRoom(room: RoomDoc, priv: RoomPrivate, rawName: string, now: number, rng: Rng, lms?: LmsBinding) {
+  if (lms) {
+    // Same Moodle user again (other tab/device): give back the same seat.
+    const seat = Object.entries(priv.lti ?? {}).find(([, b]) => b.hubUserId === lms.hubUserId)?.[0];
+    if (seat && room.players[seat] && priv.tokens[seat]) return { playerId: seat, playerToken: priv.tokens[seat] as string };
+  }
   if (room.status === 'finished') throw new GameError('finished', 'Phòng đã kết thúc.', 409);
   if (room.order.length >= MAX_SEATS) throw new GameError('full', 'Phòng đã đủ 6 người.', 409);
   const name = uniqueName(room, cleanName(rawName));
   const playerId = `p${room.order.length + 1}_${randomToken(rng, 6)}`;
   room.players[playerId] = newPlayer(playerId, name, now);
+  if (lms) {
+    priv.lti = { ...(priv.lti ?? {}), [playerId]: lms };
+    if (lms.gradeTarget) room.players[playerId]!.lms = true;
+  }
   room.order.push(playerId);
   const playerToken = randomToken(rng);
   priv.tokens[playerId] = playerToken;
@@ -164,6 +182,7 @@ export function removePlayer(room: RoomDoc, priv: RoomPrivate, playerId: string)
   if (playerId === room.hostPlayerId) throw new GameError('host', 'Không thể xóa chủ phòng.', 409);
   delete room.players[playerId];
   delete priv.tokens[playerId];
+  if (priv.lti) delete priv.lti[playerId];
   room.order = room.order.filter((id) => id !== playerId);
   room.version++;
 }
@@ -385,4 +404,37 @@ export function ranking(room: RoomDoc): PlayerPublic[] {
     .map((id) => room.players[id])
     .filter((p): p is PlayerPublic => Boolean(p))
     .sort((a, b) => b.score - a.score || b.correct - a.correct || a.joinedAt - b.joinedAt);
+}
+
+export interface LmsResult {
+  playerId: string;
+  binding: LmsBinding & { gradeTarget: string };
+  /** 0..100: share of the played questions answered fully right. */
+  score: number;
+  comment: string;
+  attemptId: string;
+  occurredAt: string;
+}
+
+/** Grades to send once a room has finished: one per Moodle player whose activity has a gradebook column. */
+export function lmsResults(room: RoomDoc, priv: RoomPrivate): LmsResult[] {
+  if (room.status !== 'finished' || !priv.lti) return [];
+  const played = Math.max(0, room.qIndex + 1);
+  if (played === 0) return [];
+  const ranked = ranking(room);
+  const out: LmsResult[] = [];
+  for (const [playerId, binding] of Object.entries(priv.lti)) {
+    const p = room.players[playerId];
+    if (!p || !binding.gradeTarget) continue;
+    const rank = ranked.findIndex((x) => x.id === playerId) + 1;
+    out.push({
+      playerId,
+      binding: { ...binding, gradeTarget: binding.gradeTarget },
+      score: Math.round((p.correct / played) * 1000) / 10,
+      comment: `Thám tử AI · phòng ${room.code} · hạng ${rank}/${ranked.length} · ${p.score} điểm trận · đúng ${p.correct}/${played} câu`,
+      attemptId: `${room.code}:${playerId}`,
+      occurredAt: new Date(room.finishedAt ?? Date.now()).toISOString(),
+    });
+  }
+  return out;
 }

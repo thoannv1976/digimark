@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BOT_LEVEL_LABEL, CATEGORIES, CATEGORY_LABEL, MAX_SEATS, type BotLevel, type Category, type RoomDoc } from '@arena/types';
-import { ErrorNote, Shell, downloadText, joinUrl, resultsCsv, statusLabel } from '../components/common';
+import { ErrorNote, MoodleBanner, Shell, downloadText, joinUrl, resultsCsv, statusLabel } from '../components/common';
 import { api } from '../lib/api';
 import { humansOf, rankPlayers, useAutoAdvance, useNow, useRoom } from '../lib/hooks';
-import { getHostedRooms, setHostedRooms, type HostedRoom } from '../lib/storage';
+import { getHostedRooms, getLti, setHostedRooms, type HostedRoom } from '../lib/storage';
 
 export function Facilitator() {
   const [rooms, setRooms] = useState<HostedRoom[]>(getHostedRooms);
@@ -56,6 +56,7 @@ export function Facilitator() {
 
   return (
     <Shell wide right={<Link to="/" className="text-sm text-white/80 hover:text-white">Trang học viên</Link>}>
+      <MoodleBanner lti={getLti()?.role === 'instructor' ? getLti() : null} role="instructor" />
       <h1 className="mb-1 text-2xl font-extrabold">Bảng điều khiển giảng viên · Thám tử AI</h1>
       <p className="mb-4 text-ink/60">Tạo nhiều phòng 6 người, chiếu mã phòng lên màn hình, theo dõi tất cả phòng cùng lúc và xuất kết quả.</p>
 

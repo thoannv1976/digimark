@@ -1,11 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { BOT_LEVEL_LABEL, MAX_SEATS, type AnswerInput, type HintPayload, type RoomDoc } from '@arena/types';
-import { CategoryStats, ErrorNote, Leaderboard, PlayerName, Qr, Shell, TimerBar, joinUrl } from '../components/common';
+import { CategoryStats, ErrorNote, Leaderboard, MoodleBanner, PlayerName, Qr, Shell, TimerBar, joinUrl } from '../components/common';
 import { AnswerArea, AnswerReview, CategoryChip, QuestionHeader } from '../components/QuestionView';
 import { api } from '../lib/api';
 import { answeredCount, humansOf, rankPlayers, useAutoAdvance, useNow, useRoom } from '../lib/hooks';
-import { clearSession, getHint, getName, getSession, setHint, setName, setSession, type Session } from '../lib/storage';
+import { clearSession, getHint, getLti, getName, getSession, setHint, setName, setSession, type Session } from '../lib/storage';
 
 export function Play() {
   const code = (useParams().code ?? '').toUpperCase();
@@ -56,7 +56,9 @@ export function Play() {
 }
 
 function JoinForm({ room, onJoined }: { room: RoomDoc; onJoined: (s: Session) => void }) {
-  const [name, setNameState] = useState(getName());
+  const lti = getLti();
+  const moodle = lti?.role === 'learner' ? lti : null;
+  const [name, setNameState] = useState(moodle ? moodle.name : getName());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const full = room.order.length >= MAX_SEATS;
@@ -67,7 +69,7 @@ function JoinForm({ room, onJoined }: { room: RoomDoc; onJoined: (s: Session) =>
     setError(null);
     try {
       setName(name.trim());
-      const r = await api.join(room.code, name.trim());
+      const r = await api.join(room.code, name.trim(), moodle?.session);
       onJoined({ playerId: r.playerId, playerToken: r.playerToken });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không vào được phòng.');
@@ -77,6 +79,7 @@ function JoinForm({ room, onJoined }: { room: RoomDoc; onJoined: (s: Session) =>
   }
   return (
     <Shell>
+      <MoodleBanner lti={moodle} role="learner" />
       <form onSubmit={submit} className="card space-y-4">
         <div>
           <p className="text-sm text-ink/60">Phòng {room.code}</p>
@@ -317,7 +320,8 @@ function FinalScreen({ room, session }: { room: RoomDoc; session: Session }) {
   async function again() {
     setBusy(true);
     try {
-      const r = await api.createRoom({ hostPlays: true, hostName: me.name, settings: room.settings });
+      const lti = getLti();
+      const r = await api.createRoom({ hostPlays: true, hostName: me.name, settings: room.settings, ...(me.lms && lti?.role === 'learner' ? { ltiSession: lti.session } : {}) });
       setSession(r.code, { playerId: r.playerId!, playerToken: r.playerToken!, hostToken: r.hostToken });
       await api.start(r.code, r.hostToken);
       nav(`/p/${r.code}`);
@@ -332,6 +336,15 @@ function FinalScreen({ room, session }: { room: RoomDoc; session: Session }) {
         <p className="mt-2 text-2xl font-extrabold">Hạng {rank}/{list.length}</p>
         <p className="text-ink/60">{me.score} điểm · đúng {me.correct}/{room.qTotal} câu · chuỗi dài nhất {me.bestStreak}</p>
       </div>
+      {me.lms && (
+        <div className={`card text-center text-sm font-medium ${room.lmsStatus?.[me.id] === 'error' ? 'text-bad' : 'text-ok'}`}>
+          {room.lmsStatus?.[me.id] === 'sent'
+            ? `✓ Đã gửi điểm ${Math.round((me.correct / Math.max(1, room.qIndex + 1)) * 1000) / 10}/100 về Sổ điểm Moodle (Moodle giữ lần cao nhất).`
+            : room.lmsStatus?.[me.id] === 'error'
+              ? 'Chưa gửi được điểm về Moodle. Báo giảng viên để kiểm tra.'
+              : 'Đang gửi điểm về Moodle…'}
+        </div>
+      )}
       <div className="card">
         <h2 className="mb-3 font-bold">Điểm mạnh, điểm yếu của bạn</h2>
         <CategoryStats p={me} />

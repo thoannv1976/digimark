@@ -30,9 +30,10 @@ export type QuestionKind = 'choice' | 'spot' | 'order';
 export type BotLevel = 'easy' | 'medium' | 'hard';
 export const BOT_LEVEL_LABEL: Record<BotLevel, string> = { easy: 'Dễ', medium: 'Vừa', hard: 'Khó' };
 
+/** Firestore cannot store arrays of arrays, so each row is an object. */
 export interface DataTable {
   headers: string[];
-  rows: string[][];
+  rows: { cells: string[] }[];
 }
 
 /** A question as the browser sees it: no answer key, options already shuffled. */
@@ -88,6 +89,8 @@ export interface PlayerPublic {
   hintsLeft: number;
   joinedAt: number;
   stats: Partial<Record<Category, CategoryStat>>;
+  /** Opened from Moodle: the final result is sent to the gradebook. */
+  lms?: boolean;
 }
 
 export interface PlayerResult {
@@ -150,6 +153,8 @@ export interface RoomDoc {
   startedAt: number | null;
   finishedAt: number | null;
   version: number;
+  /** Gradebook delivery per player (written after the game ends). */
+  lmsStatus?: Record<string, 'sent' | 'error'>;
 }
 
 export const MAX_SEATS = 6;

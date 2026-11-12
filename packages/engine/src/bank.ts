@@ -1,4 +1,10 @@
-import type { Category, DataTable, ErrorType } from './types.js';
+import type { Category, ErrorType } from './types.js';
+
+/** Bank tables are written as plain rows; preparePublic turns them into Firestore-safe rows. */
+export interface BankTable {
+  headers: string[];
+  rows: string[][];
+}
 
 /** Question bank entries (server-only: they carry the answers). */
 interface BankBase {
@@ -6,7 +12,7 @@ interface BankBase {
   category: Category;
   prompt: string;
   context?: string;
-  table?: DataTable;
+  table?: BankTable;
   /** Shown after the answer: why the right answer is right. */
   explanation: string;
   /** Course material the question is based on. */

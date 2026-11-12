@@ -1,14 +1,15 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BOT_LEVEL_LABEL, type BotLevel } from '@arena/types';
-import { ErrorNote, Shell } from '../components/common';
+import { ErrorNote, MoodleBanner, Shell } from '../components/common';
 import { api } from '../lib/api';
-import { getName, setName, setSession } from '../lib/storage';
+import { getLti, getName, setName, setSession } from '../lib/storage';
 
 export function Home() {
   const nav = useNavigate();
   const [code, setCode] = useState('');
-  const [name, setNameState] = useState(getName());
+  const lti = getLti();
+  const [name, setNameState] = useState(lti?.role === 'learner' ? lti.name : getName());
   const [level, setLevel] = useState<BotLevel>('medium');
   const [count, setCount] = useState(15);
   const [busy, setBusy] = useState(false);
@@ -27,7 +28,12 @@ export function Home() {
     setError(null);
     try {
       setName(n);
-      const r = await api.createRoom({ hostPlays: true, hostName: n, settings: { botLevel: level, questionCount: count, fillBots: true } });
+      const r = await api.createRoom({
+        hostPlays: true,
+        hostName: n,
+        settings: { botLevel: level, questionCount: count, fillBots: true },
+        ...(lti?.role === 'learner' ? { ltiSession: lti.session } : {}),
+      });
       setSession(r.code, { playerId: r.playerId!, playerToken: r.playerToken!, hostToken: r.hostToken });
       if (withBotsNow) await api.start(r.code, r.hostToken);
       nav(`/p/${r.code}`);
@@ -40,6 +46,7 @@ export function Home() {
 
   return (
     <Shell right={<Link to="/gv" className="text-sm font-medium text-white/80 hover:text-white">Giảng viên →</Link>}>
+      <MoodleBanner lti={lti?.role === 'learner' ? lti : null} role="learner" />
       <section className="mb-5 rounded-2xl bg-ink p-5 text-white">
         <p className="text-sm font-semibold uppercase tracking-widest text-amber">Game 2</p>
         <h1 className="mt-1 text-3xl font-extrabold">Thám tử AI</h1>

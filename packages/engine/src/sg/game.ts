@@ -440,7 +440,7 @@ function simulateSg(st: SgState, order: string[], inputs: Record<string, RsInput
         const loss = info.loss * (unverifiedAi ? 2 : 1);
         profit -= loss;
         lines.push({ label: `${SG_ACTION_INFO[d.action].name} · ${SG_SHIFT_INFO[sstate.shift].name}`, value: r2(-loss), note: unverifiedAi ? 'chuyển dịch không có thật, và bằng chứng là bản tổng hợp AI chưa kiểm chứng' : 'chuyển dịch này không có thật' });
-        notes.push(`Chuyển dịch “${SG_SHIFT_INFO[sstate.shift].name}” không có thật. Khoản đầu tư mất ${loss.toFixed(1)} tỷ.`);
+        notes.push(`Chuyển dịch “${SG_SHIFT_INFO[sstate.shift].name}” không có thật. Khoản đầu tư mất ${loss.toFixed(1).replace('.', ',')} tỷ.`);
       }
       // Thử nghiệm là cách mua sự chắc chắn: quý sau bạn biết chuyển dịch đó có thật hay không.
       if (d.action === 'probe') co.confirmed[sstate.shift] = sstate.real;

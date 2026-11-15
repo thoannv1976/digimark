@@ -236,7 +236,7 @@ function Form({ room, me, d, set, round }: { room: RsRoomDoc; me: Me; d: SgDecis
           value={d.action}
           onChange={(a) => set({ ...d, action: a, target: a === 'none' ? null : d.target })}
           label={(a) => `${SG_ACTION_INFO[a].icon} ${SG_ACTION_INFO[a].name}${SG_ACTION_INFO[a].cost ? ` · ${SG_ACTION_INFO[a].cost} giờ` : ''}`}
-          note={(a) => (a === 'none' ? SG_ACTION_INFO[a].what : `${SG_ACTION_INFO[a].what} Tiền về tối đa ${SG_ACTION_INFO[a].gain} tỷ, mất ${SG_ACTION_INFO[a].loss} tỷ nếu chuyển dịch không có thật.`)}
+          note={(a) => (a === 'none' ? SG_ACTION_INFO[a].what : `${SG_ACTION_INFO[a].what} Tiền về tối đa ${bnv(SG_ACTION_INFO[a].gain, 1)}, mất ${bnv(SG_ACTION_INFO[a].loss, 1)} nếu chuyển dịch không có thật.`)}
           cols={1}
           disabled={(a) => a !== 'none' && a !== d.action && SG_ACTION_INFO[a].cost > left + SG_ACTION_INFO[d.action].cost}
         />
@@ -294,8 +294,8 @@ function Form({ room, me, d, set, round }: { room: RsRoomDoc; me: Me; d: SgDecis
             </tbody>
           </table>
           <p className="text-xs text-ink/70">
-            Hệ số thời điểm: quá sớm ×{SG_WHEN_MUL.premature} · sớm một quý ×{SG_WHEN_MUL.early} · đúng quý ×{SG_WHEN_MUL.onTime} · muộn một quý ×{SG_WHEN_MUL.late} · muộn hơn ×{SG_WHEN_MUL.tooLate}. Dùng dữ liệu
-            không được phép: phạt {SG_RESTRICTED_FINE} tỷ. Chưa bao giờ theo dõi đối thủ và công nghệ: mất một phân khúc, {SG_BLIND_LOSS} tỷ.
+            Hệ số thời điểm: quá sớm ×{fmtNum(SG_WHEN_MUL.premature, 1)} · sớm một quý ×{fmtNum(SG_WHEN_MUL.early, 1)} · đúng quý ×{fmtNum(SG_WHEN_MUL.onTime, 1)} · muộn một quý ×{fmtNum(SG_WHEN_MUL.late, 1)} · muộn hơn ×{fmtNum(SG_WHEN_MUL.tooLate, 1)}. Dùng dữ liệu
+            không được phép: phạt {bnv(SG_RESTRICTED_FINE, 1)}. Chưa bao giờ theo dõi đối thủ và công nghệ: mất một phân khúc, {bnv(SG_BLIND_LOSS, 1)}.
           </p>
         </div>
       </details>

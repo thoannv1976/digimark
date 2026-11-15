@@ -259,7 +259,7 @@ function simulateJt(st: JtState, order: string[], inputs: Record<string, RsInput
       resolved = { ...co.open, handled: true, steps: d.response, damage: out.damage, verdict: out.verdict };
       co.incidents = co.incidents.map((x) => (x.round === resolved!.round ? resolved! : x));
       co.open = null;
-      notes.push(`Sự cố “${JT_RISK_INFO[resolved.risk].name}”: ${out.verdict}. Thiệt hại ${out.damage.toFixed(2)} tỷ.`);
+      notes.push(`Sự cố “${JT_RISK_INFO[resolved.risk].name}”: ${out.verdict}. Thiệt hại ${out.damage.toFixed(2).replace('.', ',')} tỷ.`);
       if (out.concealed) notes.push('Không được ưu tiên bảo vệ hình ảnh thương hiệu bằng cách che giấu sự thật hoặc trì hoãn nghĩa vụ thông báo. Điểm thương hiệu bị chặn trần từ đây.');
       co.badMoves += d.response.filter((s) => JT_STEP_INFO[s].bad).length;
     }
@@ -277,7 +277,7 @@ function simulateJt(st: JtState, order: string[], inputs: Record<string, RsInput
     for (const s of JT_STAGES) {
       const level = d.build[s];
       const help = d.fixes.filter((f) => JT_FIX_INFO[f].helps.includes(s)).length;
-      const loss = clamp01(3 * WEIGHT[s] * (1 - level / JT_MAX_LEVEL) - JT_FIX_HELP * help);
+      const loss = clamp01(3 * WEIGHT[s] * (1 - level / JT_MAX_LEVEL) * (1 - JT_FIX_HELP) ** help);
       const pass = (1 - loss) * (level === 0 ? JT_HOLE : 1);
       const out = flow * pass;
       stages.push({ stage: s, level, inFlow: Math.round(flow * 10) / 10, pass: r3(pass), lost: Math.round((flow - out) * 10) / 10 });

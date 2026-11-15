@@ -118,8 +118,11 @@ export const JT_FIX_INFO: Record<JtFix, { icon: string; name: string; pain: stri
 export const JT_FIX_COST = 1;
 /** Mỗi điểm đau đã sửa nâng chỉ số trải nghiệm thêm bấy nhiêu. */
 export const JT_FIX_CX = 0.12;
-/** Và giảm tỷ lệ rơi ở những giai đoạn nó giúp. */
-export const JT_FIX_HELP = 0.22;
+/**
+ * Và cắt bớt phần khách còn rơi ở những giai đoạn nó giúp (theo tỷ lệ, không phải trừ thẳng):
+ * sửa điểm đau làm chỗ rò nhỏ lại, nhưng không thay được một điểm chạm chưa xây.
+ */
+export const JT_FIX_HELP = 0.3;
 /**
  * Giai đoạn chưa có điểm chạm nào là một lỗ, không chỉ là một chỗ yếu: khách rơi hẳn tại đó.
  * Tỷ lệ đi tiếp của một giai đoạn cấp 0 còn bị nhân thêm hệ số này.
@@ -196,7 +199,7 @@ export const JT_RISK_BASE = 0.55;
 /** Chi nhiều cho Paid thì nội dung đi xa hơn, và sự cố cũng to hơn. */
 export const JT_PAID_RISK = 0.05;
 /** Doanh thu cộng dồn (tỷ đồng) để đạt trọn điểm phần kết quả kinh doanh. */
-export const JT_REV_TARGET = 20;
+export const JT_REV_TARGET = 15;
 
 export interface JtDecision {
   build: Record<JtStage, number>;

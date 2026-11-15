@@ -11,6 +11,7 @@ import {
   JT_EARNED,
   JT_FIXES,
   JT_FIX_COST,
+  JT_FIX_HELP,
   JT_FIX_INFO,
   JT_GOVS,
   JT_GOV_INFO,
@@ -210,8 +211,8 @@ function Form({ room, me, d, set, round }: { room: RsRoomDoc; me: Me; d: JtDecis
 
       <div className="card space-y-2">
         <h3 className="font-bold">Owned · Paid · Earned</h3>
-        <Stepper label={`💳 Paid – tiếp cận trong quý (${JT_PAID_REACH} / điểm)`} value={d.paid} onChange={(v) => set({ ...d, paid: v })} max={Math.min(JT_MAX_PAID, d.paid + left)} show={(v) => `${v} điểm`} />
-        <Stepper label={`🏠 Owned – thêm vào tài sản số (${JT_OWNED_REACH} / đơn vị, giữ ${Math.round(JT_OWNED_KEEP * 100)}% mỗi quý)`} value={d.owned} onChange={(v) => set({ ...d, owned: v })} max={Math.min(JT_MAX_OWNED, d.owned + left)} show={(v) => `${v} điểm`} />
+        <Stepper label={`💳 Paid – tiếp cận trong quý (${fmtNum(JT_PAID_REACH, 2)} mỗi điểm)`} value={d.paid} onChange={(v) => set({ ...d, paid: v })} max={Math.min(JT_MAX_PAID, d.paid + left)} show={(v) => `${v} điểm`} />
+        <Stepper label={`🏠 Owned – thêm vào tài sản số (${fmtNum(JT_OWNED_REACH, 2)} mỗi đơn vị, giữ ${Math.round(JT_OWNED_KEEP * 100)}% mỗi quý)`} value={d.owned} onChange={(v) => set({ ...d, owned: v })} max={Math.min(JT_MAX_OWNED, d.owned + left)} show={(v) => `${v} điểm`} />
         <p className="rounded-xl bg-ink/5 p-2.5 text-xs leading-relaxed text-ink/70">
           <b>{JT_MEDIA_INFO.paid.name}:</b> {JT_MEDIA_INFO.paid.what}
           <br />
@@ -223,14 +224,16 @@ function Form({ room, me, d, set, round }: { room: RsRoomDoc; me: Me; d: JtDecis
 
       <div className="card space-y-2">
         <h3 className="font-bold">Quản trị nội dung</h3>
-        <Choice options={JT_GOVS} value={d.gov} onChange={(g) => set({ ...d, gov: g })} label={(g) => `${JT_GOV_INFO[g].name} (${JT_GOV_INFO[g].cost} điểm)`} note={(g) => `${JT_GOV_INFO[g].what} Xác suất sự cố ×${JT_GOV_INFO[g].risk}, mức độ ×${JT_GOV_INFO[g].severity}, tiếp cận ×${JT_GOV_INFO[g].reach}.`} cols={1} />
+        <Choice options={JT_GOVS} value={d.gov} onChange={(g) => set({ ...d, gov: g })} label={(g) => `${JT_GOV_INFO[g].name} (${JT_GOV_INFO[g].cost} điểm)`} note={(g) => `${JT_GOV_INFO[g].what} Xác suất sự cố ×${fmtNum(JT_GOV_INFO[g].risk, 2)}, mức độ ×${fmtNum(JT_GOV_INFO[g].severity, 2)}, tiếp cận ×${fmtNum(JT_GOV_INFO[g].reach, 2)}.`} cols={1} />
         <h3 className="pt-1 font-bold">Nội dung do AI tạo</h3>
-        <Choice options={JT_AIS} value={d.ai} onChange={(a) => set({ ...d, ai: a })} label={(a) => `${JT_AI_INFO[a].name} (${JT_AI_INFO[a].cost} điểm)`} note={(a) => `${JT_AI_INFO[a].what} Nội dung ×${JT_AI_INFO[a].content}, cộng thêm ${Math.round(JT_AI_INFO[a].risk * 100)}% xác suất sự cố.`} cols={1} />
+        <Choice options={JT_AIS} value={d.ai} onChange={(a) => set({ ...d, ai: a })} label={(a) => `${JT_AI_INFO[a].name} (${JT_AI_INFO[a].cost} điểm)`} note={(a) => `${JT_AI_INFO[a].what} Nội dung ×${fmtNum(JT_AI_INFO[a].content, 2)}, cộng thêm ${Math.round(JT_AI_INFO[a].risk * 100)}% xác suất sự cố.`} cols={1} />
       </div>
 
       <div className="card space-y-2">
         <h3 className="font-bold">Điểm đau cần sửa</h3>
-        <p className="text-sm text-ink/60">Sửa một lần, có hiệu lực mãi. Trải nghiệm là thứ sinh ra Earned Media.</p>
+        <p className="text-sm text-ink/60">
+          Sửa một lần, có hiệu lực mãi: mỗi điểm đau đã sửa cắt {Math.round(JT_FIX_HELP * 100)}% phần khách còn rơi ở những giai đoạn nó giúp, và nâng chỉ số trải nghiệm. Trải nghiệm là thứ sinh ra Earned Media.
+        </p>
         <div className="grid gap-1.5">
           {JT_FIXES.map((f) => {
             const on = d.fixes.includes(f);
@@ -263,8 +266,8 @@ function Form({ room, me, d, set, round }: { room: RsRoomDoc; me: Me; d: JtDecis
         <summary className="cursor-pointer font-semibold">Bảng tra: chỉ số trải nghiệm, ma trận rủi ro, cách ra tiền</summary>
         <div className="mt-2 space-y-2 text-xs leading-relaxed text-ink/75">
           <p>
-            <b>Ra tiền:</b> tiếp cận × {fmtNum(2, 0)} khách tiềm năng mỗi đơn vị, đi qua sáu giai đoạn, ai còn lại sau bước Mua hàng thành hợp đồng mới ({JT_CONTRACT} tỷ/hợp đồng); ai đi hết tới Gắn bó sẽ tái ký quý sau (
-            {JT_RENEW} tỷ). Mục tiêu cả trận {JT_REV_TARGET} tỷ.
+            <b>Ra tiền:</b> mỗi đơn vị tiếp cận mang về 2 khách tiềm năng, đi qua sáu giai đoạn; ai còn lại sau bước Mua hàng thành hợp đồng mới ({bnv(JT_CONTRACT, 2)} một hợp đồng), ai đi hết tới Gắn bó sẽ tái ký quý sau (
+            {bnv(JT_RENEW, 2)}). Mục tiêu cả trận {bnv(JT_REV_TARGET, 0)}.
           </p>
           <p>
             <b>Chỉ số trải nghiệm:</b> {JT_CX_INFO.map((c) => `${c.name} (${c.what})`).join(' · ')}.

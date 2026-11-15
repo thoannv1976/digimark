@@ -221,6 +221,12 @@ Cân bằng: balanced 62,3 > hider 46,5 > websiteonly 44,4 > frontonly 25,7 > lo
 Đã chạy thử trên production bằng hai phòng luyện tập và kiểm tra toàn bộ màn hình, kể cả màn
 hình lật mô hình ẩn.
 
-**Còn lại.** Merge `thoannv1976/unigamehub` PR #17 → chạy `finish-digimark-game45.sh` → thêm hai
-hoạt động LTI vào khóa 70 (Chuyên đề 1 và Chuyên đề 3, cùng cài đặt như cmid 4891) → mỗi game một
-trận 6 người có điểm, rồi kiểm tra Sổ điểm.
+**Đã vào Moodle (15/11/2026).** Hub PR #17 đã merge, `finish-digimark-game45.sh` chạy xong →
+Hub `unigame-hub-00025-t44`. Khóa 70: cmid 6696 "Game 4 · Tín hiệu sớm" (Chuyên đề 1) và
+cmid 6697 "Game 5 · Hành trình và niềm tin" (Chuyên đề 3), thang điểm 10, lấy lần cao nhất,
+không giới hạn nhóm. Trận có điểm: Game 5 phòng 2CMME hạng 1/6, thẻ 59 → 7,13/10;
+Game 4 phòng VRQCM hạng 4/6, thẻ 11,3 → 1,99/10, sau đó phòng DWMAJ hạng 1/6, thẻ 50,2 → 6,51/10
+thay chỗ (đúng luật lấy lần cao nhất). Cả hai hiện trong Sổ điểm khóa 70 kèm dòng phản hồi
+phòng · hạng · thẻ mục tiêu.
+
+**Còn lại.** Thử với 6 điện thoại thật trong buổi học.

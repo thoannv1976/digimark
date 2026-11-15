@@ -1,6 +1,8 @@
 # Kế hoạch Game 4 và Game 5 – hai chuyên đề còn thiếu game
 
-Trạng thái: **chờ duyệt** (viết ngày 15/11/2026). Chưa viết dòng mã nào.
+Trạng thái: **đã duyệt và đã làm** ngày 15/11/2026 (chọn cách A: chuyển khung `rs` sang trước).
+Hai game đã chạy trên https://digimark-514506.web.app. Phần còn lại: merge PR danh mục Hub #17,
+thêm hoạt động vào khóa 70 và chạy trận chấm điểm — xem mục 7 ở cuối.
 
 ## 1. Vì sao hai game này
 
@@ -189,3 +191,36 @@ Nếu chọn cách B thì cộng thêm khoảng nửa ngày cho mỗi game vì p
 4. **Số người**: hai game này vẫn thiết kế cho phòng 6 người như ba game cũ, ghế trống do máy chơi. Khóa 70 hiện có 6 học viên nên vừa đủ một phòng; nếu lớp thật đông hơn thì giảng viên mở nhiều phòng song song.
 
 Chưa làm gì trước khi có duyệt.
+
+
+---
+
+## 7. Đã làm (15/11/2026)
+
+**Khung phòng (cách A).** `packages/engine/src/rs/` (types, room, registry, balance) và
+`apps/web/src/rs/` (parts, RsPlay, RsScreen, registry). API thêm hai route `/rs-decide` và
+`/rs-me`, cùng nhánh `isRs()` bên cạnh `isMarket()` / `isAbm()`. Ba game cũ không chuyển sang
+khung mới và không đổi gì; toàn bộ test cũ vẫn xanh.
+
+**Game 4 · Tín hiệu sớm** (`signal-room`, engine `sg/`): 5 quý, 10 giờ phân tích. Ba chuyển dịch
+thật, hai chuyển dịch giả, trong đó "cạnh tranh giữa các giải pháp" luôn thật. Kết quả kiểm chứng
+chỉ dùng được từ quý sau; quyết định không có bằng chứng đã kiểm chứng chỉ ăn 45%; ai chưa bao giờ
+theo dõi đối thủ và công nghệ mất một phân khúc ở quý 4. Cân bằng (200 ván, mức vừa):
+reader 54,1 > latecomer 43,2 > hoarder 28,1 > believer 17,7 > pricewatch 11,5 > aionly 8,8.
+
+**Game 5 · Hành trình và niềm tin** (`journey-trust`, engine `jt/`): 5 quý, 12 điểm nguồn lực.
+Trọng số thật của sáu giai đoạn là ẩn (Đánh giá 0,28 nặng nhất); giai đoạn cấp 0 là một lỗ
+(tỷ lệ đi tiếp còn một nửa); mỗi điểm đau đã sửa cắt 30% phần khách còn rơi. Owned cộng dồn,
+Paid hết hiệu lực khi ngừng chi, Earned sinh ra từ trải nghiệm và độ tin cậy. Sự cố nổ theo cơ chế
+phê duyệt và mức kiểm soát nội dung AI, xử lý ở ô "60 phút đầu tiên" của quý sau bằng 3 trong 8
+lựa chọn; che giấu sự cố an toàn, môi trường hoặc bảo mật bị chặn trần điểm thương hiệu.
+Cân bằng: balanced 62,3 > hider 46,5 > websiteonly 44,4 > frontonly 25,7 > loose 22,2 > buyreach 5,1.
+
+**Kiểm thử.** 54 test đơn vị (`test/sg.test.ts`, `test/jt.test.ts`) và 15 test tích hợp
+(`apps/api/test/rs.test.ts`, gồm cả đường điểm về Hub), typecheck sạch cả ba workspace.
+Đã chạy thử trên production bằng hai phòng luyện tập và kiểm tra toàn bộ màn hình, kể cả màn
+hình lật mô hình ẩn.
+
+**Còn lại.** Merge `thoannv1976/unigamehub` PR #17 → chạy `finish-digimark-game45.sh` → thêm hai
+hoạt động LTI vào khóa 70 (Chuyên đề 1 và Chuyên đề 3, cùng cài đặt như cmid 4891) → mỗi game một
+trận 6 người có điểm, rồi kiểm tra Sổ điểm.

@@ -9,7 +9,10 @@ export function Home() {
   const nav = useNavigate();
   const [code, setCode] = useState('');
   const lti = getLti();
-  const [game, setGame] = useState<'ai-detective' | 'market-share' | 'key-accounts'>(lti?.activity === 'market-share' || lti?.activity === 'key-accounts' ? lti.activity : 'ai-detective');
+  const GAMES = ['ai-detective', 'market-share', 'key-accounts', 'signal-room', 'journey-trust'] as const;
+  type GameChoice = (typeof GAMES)[number];
+  const [game, setGame] = useState<GameChoice>((GAMES as readonly string[]).includes(lti?.activity ?? '') && lti?.activity !== 'arena' ? (lti!.activity as GameChoice) : 'ai-detective');
+  const isRsGame = game === 'signal-room' || game === 'journey-trust';
   const [name, setNameState] = useState(lti?.role === 'learner' ? lti.name : getName());
   const [level, setLevel] = useState<BotLevel>('medium');
   const [count, setCount] = useState(15);
@@ -32,7 +35,9 @@ export function Home() {
       const r = await api.createRoom({
         hostPlays: true,
         hostName: n,
-        ...(game === 'key-accounts'
+        ...(isRsGame
+          ? { game, settings: { decideSec: 300, resultsSec: 0, botLevel: 'medium' as const, fillBots: true } }
+          : game === 'key-accounts'
           ? { game, settings: { botLevel: level, fillBots: true, monthSec: withBotsNow ? 0 : 300 } }
           : game === 'market-share'
           ? { game, settings: { botLevel: level, fillBots: true, decideSec: withBotsNow ? 0 : 300 } }
@@ -57,13 +62,27 @@ export function Home() {
           ['market-share', '📈 Thị phần'],
           ['ai-detective', '🔍 Thám tử AI'],
           ['key-accounts', '🤝 Săn hợp đồng'],
+          ['signal-room', '📡 Tín hiệu sớm'],
+          ['journey-trust', '🧭 Hành trình'],
         ] as const).map(([id, name]) => (
           <button key={id} type="button" onClick={() => setGame(id)} className={`rounded-xl px-3 py-2 text-sm font-bold ring-1 ${game === id ? 'bg-ink text-white ring-ink' : 'bg-white ring-ink/15'}`}>
             {name}
           </button>
         ))}
       </div>
-      {game === 'ai-detective' ? (
+      {game === 'signal-room' ? (
+        <section className="mb-5 rounded-2xl bg-ink p-5 text-white">
+          <p className="text-sm font-semibold uppercase tracking-widest text-amber">Game 4</p>
+          <h1 className="mt-1 text-3xl font-extrabold">Tín hiệu sớm</h1>
+          <p className="mt-2 text-white/80">Bạn là bộ phận thông tin thị trường. Mỗi quý có 10 giờ phân tích để chia cho theo dõi, kiểm chứng và hành động. Thị trường đang chuyển dịch, nhưng không phải chuyển dịch nào cũng có thật – và ai nhận ra trước thì ăn đậm.</p>
+        </section>
+      ) : game === 'journey-trust' ? (
+        <section className="mb-5 rounded-2xl bg-ink p-5 text-white">
+          <p className="text-sm font-semibold uppercase tracking-widest text-amber">Game 5</p>
+          <h1 className="mt-1 text-3xl font-extrabold">Hành trình và niềm tin</h1>
+          <p className="mt-2 text-white/80">Marketing số cho gói khí/LNG bán cho khách công nghiệp: dựng sáu giai đoạn của hành trình khách hàng, chia Owned – Paid – Earned, sửa điểm đau trải nghiệm và xử lý sự cố truyền thông trong 60 phút đầu tiên.</p>
+        </section>
+      ) : game === 'ai-detective' ? (
         <section className="mb-5 rounded-2xl bg-ink p-5 text-white">
           <p className="text-sm font-semibold uppercase tracking-widest text-amber">Game 2</p>
           <h1 className="mt-1 text-3xl font-extrabold">Thám tử AI</h1>

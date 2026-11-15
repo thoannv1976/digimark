@@ -12,6 +12,9 @@ import { abmCsv, marketCsv } from '../components/common';
 import { AbmScreen, useAwardStepper } from '../abm/AbmScreen';
 import { asAbm, isAbmRoom, useAbmAutoAdvance } from '../abm/parts';
 import { MONTHS, type AbmRoomDoc } from '@arena/abm';
+import { RsControls, RsScreen } from '../rs/RsScreen';
+import { asRs, isRsRoom, useRsAutoAdvance } from '../rs/parts';
+import { rsWebOf } from '../rs/registry';
 
 /** Projector screen for one room. Host controls appear when this browser created the room. */
 export function Screen() {
@@ -24,6 +27,8 @@ export function Screen() {
   useMarketAutoAdvance(room && isMarket ? asMarket(room) : null, now, hostToken);
   const isAbm = isAbmRoom(room);
   useAbmAutoAdvance(room && isAbm ? asAbm(room) : null, now, hostToken);
+  const isRs = isRsRoom(room);
+  useRsAutoAdvance(room && isRs ? asRs(room) : null, now, hostToken);
   const stepper = useAwardStepper(room && isAbm ? asAbm(room) : null, Boolean(hostToken));
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -46,23 +51,25 @@ export function Screen() {
   return (
     <div className="min-h-screen bg-paper">
       <header className="flex items-center justify-between bg-ink px-6 py-3 text-white">
-        <span className="text-xl font-extrabold">{isAbm ? '🤝 Săn hợp đồng trọng điểm' : isMarket ? '📈 Đấu trường Thị phần' : '🔍 Thám tử AI'} · <span className="text-amber">{room.title}</span></span>
+        <span className="text-xl font-extrabold">{isRs ? rsWebOf(asRs(room).game)?.tag : isAbm ? '🤝 Săn hợp đồng trọng điểm' : isMarket ? '📈 Đấu trường Thị phần' : '🔍 Thám tử AI'} · <span className="text-amber">{room.title}</span></span>
         <span className="text-lg">
           Mã phòng <b className="text-2xl tracking-[0.2em] text-amber">{room.code}</b>
         </span>
       </header>
       <main className="mx-auto max-w-6xl space-y-5 p-6">
         <ErrorNote text={error ?? actionError} />
+        {isRs && <RsScreen room={asRs(room)} now={now} />}
         {isAbm && <AbmScreen room={asAbm(room)} now={now} shown={stepper.shown} />}
         {isMarket && <MarketScreen room={asMarket(room)} now={now} />}
-        {!isMarket && !isAbm && room.status === 'lobby' && <LobbyScreen room={room} />}
-        {!isMarket && !isAbm && room.status === 'question' && <QuestionScreen room={room} now={now} />}
-        {!isMarket && !isAbm && room.status === 'reveal' && <RevealScreen room={room} now={now} />}
-        {!isMarket && !isAbm && room.status === 'finished' && <FinalScreen room={room} />}
+        {!isMarket && !isAbm && !isRs && room.status === 'lobby' && <LobbyScreen room={room} />}
+        {!isMarket && !isAbm && !isRs && room.status === 'question' && <QuestionScreen room={room} now={now} />}
+        {!isMarket && !isAbm && !isRs && room.status === 'reveal' && <RevealScreen room={room} now={now} />}
+        {!isMarket && !isAbm && !isRs && room.status === 'finished' && <FinalScreen room={room} />}
 
+        {hostToken && isRs && <RsControls room={asRs(room)} hostToken={hostToken} busy={busy} run={run} />}
         {hostToken && isAbm && <AbmControls room={asAbm(room)} hostToken={hostToken} busy={busy} run={run} stepper={stepper} />}
         {hostToken && isMarket && <MarketControls room={asMarket(room)} hostToken={hostToken} busy={busy} run={run} />}
-        {hostToken && !isMarket && !isAbm && (
+        {hostToken && !isMarket && !isAbm && !isRs && (
           <div className="flex flex-wrap justify-center gap-3 pt-2">
             {room.status === 'lobby' && (
               <button type="button" className="btn-primary px-8 py-3 text-xl" disabled={busy || !room.order.length} onClick={() => run(() => api.start(room.code, hostToken))}>

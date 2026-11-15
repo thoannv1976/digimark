@@ -9,11 +9,16 @@ import { asMarket, rankedIds, useMarketAutoAdvance } from '../market/parts';
 import { api } from '../lib/api';
 import { humansOf, rankPlayers, useAutoAdvance, useNow, useRoom } from '../lib/hooks';
 import { getHostedRooms, getLti, setHostedRooms, type HostedRoom } from '../lib/storage';
+import { asRs, isRsRoom, useRsAutoAdvance } from '../rs/parts';
+import { rsCsv } from '../components/common';
 
 export function Facilitator() {
   const [rooms, setRooms] = useState<HostedRoom[]>(getHostedRooms);
   const lti = getLti();
-  const [game, setGame] = useState<'ai-detective' | 'market-share' | 'key-accounts'>(lti?.activity === 'market-share' || lti?.activity === 'key-accounts' ? lti.activity : 'ai-detective');
+  const GAMES = ['ai-detective', 'market-share', 'key-accounts', 'signal-room', 'journey-trust'] as const;
+  type GameChoice = (typeof GAMES)[number];
+  const [game, setGame] = useState<GameChoice>((GAMES as readonly string[]).includes(lti?.activity ?? '') && lti?.activity !== 'arena' ? (lti!.activity as GameChoice) : 'ai-detective');
+  const isRsGame = game === 'signal-room' || game === 'journey-trust';
   const [decideMin, setDecideMin] = useState(5);
   const [monthMin, setMonthMin] = useState(4);
   const [briefMin, setBriefMin] = useState(3);
@@ -42,7 +47,9 @@ export function Facilitator() {
       for (let i = 0; i < count; i++) {
         const title = `${prefix.trim() || 'Phòng'} ${start + i}`;
         const r =
-          game === 'key-accounts'
+          isRsGame
+            ? await api.createRoom({ game, hostPlays: false, title, settings: { decideSec: decideMin * 60, resultsSec, botLevel: level, fillBots } })
+            : game === 'key-accounts'
             ? await api.createRoom({ game, hostPlays: false, title, settings: { monthSec: monthMin * 60, briefSec: briefMin * 60, bidSec: bidMin * 60, resultsSec, botLevel: level, fillBots } })
             : game === 'market-share'
             ? await api.createRoom({ game, hostPlays: false, title, settings: { quarters: 5, decideSec: decideMin * 60, resultsSec, botLevel: level, fillBots } })
@@ -61,6 +68,7 @@ export function Facilitator() {
   const liveQuiz = live.filter((r) => (r as unknown as { game?: string }).game === 'ai-detective' || !(r as unknown as { game?: string }).game);
   const liveAbm = live.filter((r) => isAbmRoom(r)).map((r) => r as unknown as AbmRoomDoc);
   const liveMarket = live.filter((r) => (r as unknown as { game?: string }).game === 'market-share').map((r) => r as unknown as MarketRoomDoc);
+  const liveRs = live.filter((r) => isRsRoom(r)).map((r) => asRs(r));
   const waiting = rooms.filter((r) => {
     const s = snapshots[r.code];
     return s?.status === 'lobby' && humansOf(s).length > 0;
@@ -83,6 +91,8 @@ export function Facilitator() {
           ['market-share', '📈 Game 1 · Đấu trường Thị phần', 'Mô phỏng 5 quý thị trường xăng dầu – gas (tình huống A), khoảng 40 phút.'],
           ['ai-detective', '🔍 Game 2 · Thám tử AI', 'Đấu nhanh 10–25 câu (CĐ3–CĐ4), khoảng 15 phút.'],
           ['key-accounts', '🤝 Game 3 · Săn hợp đồng trọng điểm', 'ABM 8 nhà máy, nhóm mua 5 vai (CĐ2, tình huống C), khoảng 35–40 phút.'],
+          ['signal-room', '📡 Game 4 · Tín hiệu sớm', 'Thông tin và phân tích thị trường, 5 quý (CĐ1), khoảng 25–30 phút.'],
+          ['journey-trust', '🧭 Game 5 · Hành trình và niềm tin', 'Hành trình khách hàng, trải nghiệm và rủi ro truyền thông, 5 quý (CĐ3), khoảng 30–35 phút.'],
         ] as const).map(([id, name, note]) => (
           <button key={id} type="button" onClick={() => setGame(id)} className={`rounded-2xl px-4 py-3 text-left ring-1 ${game === id ? 'bg-ink text-white ring-ink' : 'bg-white ring-ink/15 hover:bg-amber/10'}`}>
             <p className="font-bold">{name}</p>
@@ -101,7 +111,23 @@ export function Facilitator() {
             <label className="label" htmlFor="pre">Tên phòng</label>
             <input id="pre" className="input" value={prefix} maxLength={30} onChange={(e) => setPrefix(e.target.value)} />
           </div>
-          {game === 'key-accounts' ? (
+          {isRsGame ? (
+            <>
+              <div>
+                <label className="label" htmlFor="dmr">Thời gian quyết định mỗi quý</label>
+                <select id="dmr" className="input" value={decideMin} onChange={(e) => setDecideMin(Number(e.target.value))}>
+                  {[3, 4, 5, 6, 8].map((n) => <option key={n} value={n}>{n} phút</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label" htmlFor="rsr">Sang quý mới</label>
+                <select id="rsr" className="input" value={resultsSec} onChange={(e) => setResultsSec(Number(e.target.value))}>
+                  <option value={0}>Giảng viên bấm</option>
+                  {[60, 90, 120].map((n) => <option key={n} value={n}>Tự động sau {n} giây</option>)}
+                </select>
+              </div>
+            </>
+          ) : game === 'key-accounts' ? (
             <>
               <div>
                 <label className="label" htmlFor="mm">Mỗi tháng tiếp cận</label>
@@ -210,6 +236,7 @@ export function Facilitator() {
               if (liveQuiz.length) downloadText(`ket-qua-tham-tu-ai-${day}.csv`, resultsCsv(liveQuiz));
               if (liveMarket.length) downloadText(`ket-qua-dau-truong-thi-phan-${day}.csv`, marketCsv(liveMarket));
               if (liveAbm.length) downloadText(`ket-qua-san-hop-dong-${day}.csv`, abmCsv(liveAbm));
+              if (liveRs.length) downloadText(`ket-qua-game-nhieu-vong-${day}.csv`, rsCsv(liveRs));
             }}
           >
             ⬇ Xuất kết quả (Excel/CSV)
@@ -236,6 +263,7 @@ function RoomCard({ hosted, onSnapshot, onRemove }: { hosted: HostedRoom; onSnap
   useMarketAutoAdvance(room && isMarket ? asMarket(room) : null, now, hosted.hostToken);
   const isAbm = isAbmRoom(room);
   useAbmAutoAdvance(room && isAbm ? asAbm(room) : null, now, hosted.hostToken);
+  useRsAutoAdvance(room && isRsRoom(room) ? asRs(room) : null, now, hosted.hostToken);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     if (room) onSnapshot(room);

@@ -9,7 +9,10 @@
     "paths": {
       "@arena/types": ["../../packages/engine/src/types.ts"],
       "@arena/market": ["../../packages/engine/src/market/types.ts"],
-      "@arena/abm": ["../../packages/engine/src/abm/types.ts"]
+      "@arena/abm": ["../../packages/engine/src/abm/types.ts"],
+      "@arena/rs": ["../../packages/engine/src/rs/types.ts"],
+      "@arena/sg": ["../../packages/engine/src/sg/types.ts"],
+      "@arena/jt": ["../../packages/engine/src/jt/types.ts"]
     }
   },
   "include": ["src"]

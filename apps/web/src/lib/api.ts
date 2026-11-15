@@ -1,6 +1,7 @@
 import type { AnswerInput, HintPayload, RoomSettings, RoomStatus } from '@arena/types';
 import type { MarketDecision, MarketMe, MarketSettings } from '@arena/market';
 import type { AbmBid, AbmMe, AbmPlan, AbmSettings } from '@arena/abm';
+import type { RsMe, RsSettings } from '@arena/rs';
 
 /** Server clock offset (ms) so every device counts down to the same deadline. */
 let offset = 0;
@@ -50,7 +51,7 @@ export const api = {
   time: () => call<{ serverNow: number }>('GET', '/time'),
   ltiLaunch: (ticket: string) =>
     call<{ session: string; role: 'instructor' | 'learner'; name: string; contextTitle: string | null; graded: boolean; activity: string | null }>('POST', '/lti/launch', { ticket }),
-  createRoom: (body: { hostPlays: boolean; hostName?: string; title?: string; game?: 'ai-detective' | 'market-share' | 'key-accounts'; settings?: Partial<RoomSettings> | Partial<MarketSettings> | Partial<AbmSettings>; ltiSession?: string }) =>
+  createRoom: (body: { hostPlays: boolean; hostName?: string; title?: string; game?: 'ai-detective' | 'market-share' | 'key-accounts' | 'signal-room' | 'journey-trust'; settings?: Partial<RoomSettings> | Partial<MarketSettings> | Partial<AbmSettings> | Partial<RsSettings>; ltiSession?: string }) =>
     call<{ code: string; hostToken: string; playerId?: string; playerToken?: string }>('POST', '/rooms', body),
   join: (code: string, name: string, ltiSession?: string) =>
     call<{ playerId: string; playerToken: string }>('POST', `/rooms/${code}/join`, { name, ...(ltiSession ? { ltiSession } : {}) }),
@@ -69,6 +70,9 @@ export const api = {
   bids: (code: string, playerId: string, playerToken: string, round: number, bids: AbmBid[]) =>
     call<{ ok: true; closed: boolean }>('POST', `/rooms/${code}/bids`, { playerId, playerToken, round, bids }),
   abmMe: (code: string, playerId: string, playerToken: string) => call<AbmMe>('POST', `/rooms/${code}/abm-me`, { playerId, playerToken }),
+  rsDecide: (code: string, playerId: string, playerToken: string, round: number, decision: Record<string, unknown>) =>
+    call<{ ok: true; closed: boolean }>('POST', `/rooms/${code}/rs-decide`, { playerId, playerToken, round, decision }),
+  rsMe: (code: string, playerId: string, playerToken: string) => call<RsMe>('POST', `/rooms/${code}/rs-me`, { playerId, playerToken }),
   reveal: (code: string, hostToken: string) => call<{ ok: true }>('POST', `/rooms/${code}/reveal`, { hostToken }),
   extend: (code: string, hostToken: string) => call<{ ok: true }>('POST', `/rooms/${code}/extend`, { hostToken }),
   advance: (code: string, opts: { hostToken?: string; expectStatus?: RoomStatus | 'decide' | 'results'; expectQIndex?: number; expectQuarter?: number }) =>

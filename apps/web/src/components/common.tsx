@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { BOT_LEVEL_LABEL, CATEGORY_LABEL, type Category, type PlayerPublic, type RevealPublic, type RoomDoc } from '@arena/types';
 import { ARCHETYPE_INFO, type MarketRoomDoc } from '@arena/market';
 import { ABM_ARCHETYPE_INFO, MONTHS, type AbmRoomDoc } from '@arena/abm';
+import type { RsRoomDoc } from '@arena/rs';
 import { rankPlayers } from '../lib/hooks';
 
 export function Shell({ children, wide, right }: { children: ReactNode; wide?: boolean; right?: ReactNode }) {
@@ -31,8 +32,8 @@ export function MoodleBanner({ lti, role, game }: { lti: { contextTitle: string 
       {lti.contextTitle ? ` · ${lti.contextTitle}` : ''}.{' '}
       {role === 'learner'
         ? lti.graded
-          ? game === 'market-share' || game === 'key-accounts'
-            ? `Khi ${game === 'market-share' ? 'hết 5 quý' : 'trao xong hợp đồng'}, điểm (70% thẻ mục tiêu + 30% thứ hạng) được gửi về Sổ điểm (lấy lần cao nhất).`
+          ? game && game !== 'ai-detective'
+            ? `Khi trận kết thúc, điểm (70% thẻ mục tiêu + 30% thứ hạng) được gửi về Sổ điểm (lấy lần cao nhất).`
             : 'Kết thúc mỗi trận, tỷ lệ câu đúng được gửi về Sổ điểm (lấy lần cao nhất).'
           : 'Hoạt động này không lấy điểm.'
         : 'Học viên mở hoạt động trong Moodle rồi nhập mã phòng; khi phòng kết thúc, điểm tự về Sổ điểm.'}
@@ -127,6 +128,11 @@ export const joinUrl = (code: string) => `${window.location.origin}/p/${code}`;
 
 export function statusLabel(room: RoomDoc): string {
   if (room.status === 'lobby') return 'Đang chờ';
+  const rs = room as unknown as { game?: string; round?: number; rounds?: number };
+  if (rs.game === 'signal-room' || rs.game === 'journey-trust') {
+    if (room.status === 'finished') return 'Đã kết thúc';
+    return `Quý ${rs.round}/${rs.rounds}${(room.status as string) === 'results' ? ' · kết quả' : ' · quyết định'}`;
+  }
   if ((room as unknown as AbmRoomDoc).game === 'key-accounts') {
     const a = room as unknown as AbmRoomDoc;
     if (a.status === 'finished') return 'Đã kết thúc';
@@ -225,6 +231,34 @@ export function abmCsv(rooms: AbmRoomDoc[]): string {
   }
   const esc = (v: string) => (/[",\n;]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
   return '\ufeff' + lines.map((l) => l.map(esc).join(',')).join('\r\n');
+}
+
+/** Kết quả các game nhiều vòng (một dòng mỗi đơn vị). */
+export function rsCsv(rooms: RsRoomDoc[]): string {
+  const header = ['Phòng', 'Mã phòng', 'Game', 'Hạng', 'Đơn vị', 'Loại', 'Gửi Moodle', 'Thẻ mục tiêu (/100)', 'Số vòng đã chơi'];
+  const cols = [...new Set(rooms.flatMap((r) => Object.values(r.standings).flatMap((s) => Object.keys(s.cols))))];
+  const lines = [[...header, ...cols]];
+  for (const room of rooms) {
+    const ids = room.order.slice().sort((a, b) => (room.standings[a]?.rank ?? 99) - (room.standings[b]?.rank ?? 99));
+    for (const id of ids) {
+      const p = room.players[id]!;
+      const s = room.standings[id];
+      lines.push([
+        room.title,
+        room.code,
+        room.game,
+        s ? String(s.rank) : '',
+        p.name,
+        p.bot ? `Máy (${p.archetype ?? ''})` : 'Người',
+        p.lms ? (room.lmsStatus?.[id] === 'sent' ? 'Đã gửi' : room.lmsStatus?.[id] === 'error' ? 'Lỗi' : 'Chờ') : '',
+        s ? String(s.score) : '',
+        String(room.history.length),
+        ...cols.map((c) => (s?.cols[c] !== undefined ? String(s.cols[c]) : '')),
+      ]);
+    }
+  }
+  const esc = (v: string) => (/[",\n;]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  return '﻿' + lines.map((l) => l.map(esc).join(',')).join('\r\n');
 }
 
 export function downloadText(filename: string, text: string) {
